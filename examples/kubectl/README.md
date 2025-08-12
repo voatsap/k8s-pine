@@ -340,31 +340,6 @@ k get secret nginx-secret -o yaml
 k get secret nginx-secret -o jsonpath='{.data.password}' | base64 -d
 ```
 
-## 🛠️ Useful Aliases and Functions
-
-Add these to your shell configuration:
-
-```bash
-# Quick aliases (already configured by setup script)
-alias k='kubecolor'
-alias kgp='kubecolor get pods'
-alias kgs='kubecolor get services'
-alias kgd='kubecolor get deployments'
-
-# Additional useful aliases
-alias kaf='kubecolor apply -f'
-alias kdel='kubecolor delete'
-alias klog='kubecolor logs'
-alias kexec='kubecolor exec -it'
-alias kdesc='kubecolor describe'
-alias kedit='kubecolor edit'
-
-# Functions
-kpods() { k get pods -l app=$1; }
-klogs() { k logs -f deployment/$1; }
-kshell() { k exec -it deployment/$1 -- /bin/bash; }
-```
-
 ## 📚 Additional Resources
 
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
