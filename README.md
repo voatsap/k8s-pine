@@ -47,7 +47,7 @@ sudo yum install bash-completion
 
 # Add to ~/.bashrc
 echo 'source <(kubectl completion bash)' >>~/.bashrc
-echo 'alias k=kubectl' >>~/.bashrc
+echo 'alias k=kubecolor' >>~/.bashrc
 echo 'complete -o default -F __start_kubectl k' >>~/.bashrc
 
 # Reload shell
@@ -59,7 +59,7 @@ source ~/.bashrc
 ```bash
 # Add to ~/.zshrc
 echo 'source <(kubectl completion zsh)' >>~/.zshrc
-echo 'alias k=kubectl' >>~/.zshrc
+echo 'alias k=kubecolor' >>~/.zshrc
 echo 'compdef __start_kubectl k' >>~/.zshrc
 
 # Reload shell
@@ -163,12 +163,14 @@ Add to your shell configuration:
 
 ```bash
 # For Bash (~/.bashrc) or Zsh (~/.zshrc)
-alias kubectl="kubecolor"
-# or keep original kubectl and add colored version
-alias kc="kubecolor"
+alias k="kubecolor"        # Short alias with colors
+alias kc="kubecolor"       # Alternative alias
+alias kubectl="kubecolor"  # Override kubectl completely (optional)
 
 # Enable completion for kubecolor
+complete -o default -F __start_kubectl k          # Bash
 complete -o default -F __start_kubectl kubecolor  # Bash
+compdef __start_kubectl k                         # Zsh
 compdef __start_kubectl kubecolor                 # Zsh
 ```
 
@@ -261,23 +263,23 @@ Use the provided scripts in the `hack/` folder for easy setup:
 The setup scripts automatically configure your shell with useful aliases:
 
 ```bash
-# Core shortcuts
-k          # kubectl
-kc         # kubecolor  
-kgp        # kubectl get pods
-kgs        # kubectl get services
-kgd        # kubectl get deployments
+# Core shortcuts (all with colorized output)
+k          # kubecolor (colorized kubectl)
+kc         # kubecolor (alternative alias)
+kgp        # kubecolor get pods
+kgs        # kubecolor get services
+kgd        # kubecolor get deployments
 kctx       # kubectx (switch contexts)
 kns        # kubens (switch namespaces)
 
-# Additional shortcuts
-kaf        # kubectl apply -f
-kdel       # kubectl delete
-klog       # kubectl logs
-kexec      # kubectl exec -it
-kinfo      # kubectl cluster-info
-knodes     # kubectl get nodes
-kversion   # kubectl version --short
+# Additional shortcuts (all colorized)
+kaf        # kubecolor apply -f
+kdel       # kubecolor delete
+klog       # kubecolor logs
+kexec      # kubecolor exec -it
+kinfo      # kubecolor cluster-info
+knodes     # kubecolor get nodes
+kversion   # kubecolor version --short
 ```
 
 ## 🔍 Troubleshooting

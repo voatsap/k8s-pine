@@ -46,7 +46,7 @@ fi
 if [[ $SHELL_TYPE == "zsh" ]]; then
     if ! grep -q "kubectl completion zsh" ~/.zshrc 2>/dev/null; then
         echo 'source <(kubectl completion zsh)' >> ~/.zshrc
-        echo 'alias k=kubectl' >> ~/.zshrc
+        echo 'alias k=kubecolor' >> ~/.zshrc
         echo 'compdef __start_kubectl k' >> ~/.zshrc
         echo "✅ kubectl completion added to ~/.zshrc"
     else
@@ -55,7 +55,7 @@ if [[ $SHELL_TYPE == "zsh" ]]; then
 else
     if ! grep -q "kubectl completion bash" ~/.bashrc 2>/dev/null; then
         echo 'source <(kubectl completion bash)' >> ~/.bashrc
-        echo 'alias k=kubectl' >> ~/.bashrc
+        echo 'alias k=kubecolor' >> ~/.bashrc
         echo 'complete -o default -F __start_kubectl k' >> ~/.bashrc
         echo "✅ kubectl completion added to ~/.bashrc"
     else
@@ -262,14 +262,14 @@ fi
 echo "🔗 Adding useful Kubernetes aliases..."
 ALIASES='
 # Kubernetes shortcuts
-alias k="kubectl"
-alias kgp="kubectl get pods"
-alias kgs="kubectl get services"
-alias kgd="kubectl get deployments"
-alias kaf="kubectl apply -f"
-alias kdel="kubectl delete"
-alias klog="kubectl logs"
-alias kexec="kubectl exec -it"
+alias k="kubecolor"
+alias kgp="kubecolor get pods"
+alias kgs="kubecolor get services"
+alias kgd="kubecolor get deployments"
+alias kaf="kubecolor apply -f"
+alias kdel="kubecolor delete"
+alias klog="kubecolor logs"
+alias kexec="kubecolor exec -it"
 alias kctx="kubectx"
 alias kns="kubens"
 
@@ -279,9 +279,9 @@ alias kcgs="kubecolor get services"
 alias kcgd="kubecolor get deployments"
 
 # Quick cluster info
-alias kinfo="kubectl cluster-info"
-alias knodes="kubectl get nodes"
-alias kversion="kubectl version --short"
+alias kinfo="kubecolor cluster-info"
+alias knodes="kubecolor get nodes"
+alias kversion="kubecolor version --short"
 '
 
 if [[ $SHELL_TYPE == "zsh" ]]; then

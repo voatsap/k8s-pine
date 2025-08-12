@@ -50,7 +50,7 @@ check_shell_config() {
     fi
     
     # Check aliases
-    local aliases=("k=kubectl" "kc=kubecolor" "kgp=" "kctx=" "kns=")
+    local aliases=("k=kubecolor" "kc=kubecolor" "kgp=" "kctx=" "kns=")
     for alias_check in "${aliases[@]}"; do
         if grep -q "alias $alias_check" "$config_file" 2>/dev/null; then
             echo -e "✅ ${GREEN}alias $alias_check${NC} configured"
