@@ -47,7 +47,7 @@ if [[ $SHELL_TYPE == "zsh" ]]; then
     if ! grep -q "kubectl completion zsh" ~/.zshrc 2>/dev/null; then
         echo 'source <(kubectl completion zsh)' >> ~/.zshrc
         echo 'alias k=kubecolor' >> ~/.zshrc
-        echo 'compdef __start_kubectl k' >> ~/.zshrc
+        echo 'compdef _kubectl k' >> ~/.zshrc
         echo "✅ kubectl completion added to ~/.zshrc"
     else
         echo "✅ kubectl completion already configured"
