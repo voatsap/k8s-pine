@@ -9,14 +9,14 @@ alias kc="kubecolor"
 compdef _kubectl kubecolor
 
 # Kubernetes shortcuts
-alias k="kubectl"
-alias kgp="kubectl get pods"
-alias kgs="kubectl get services"
-alias kgd="kubectl get deployments"
-alias kaf="kubectl apply -f"
-alias kdel="kubectl delete"
-alias klog="kubectl logs"
-alias kexec="kubectl exec -it"
+alias k="kubecolor"
+alias kgp="kubecolor get pods"
+alias kgs="kubecolor get services"
+alias kgd="kubecolor get deployments"
+alias kaf="kubecolor apply -f"
+alias kdel="kubecolor delete"
+alias klog="kubecolor logs"
+alias kexec="kubecolor exec -it"
 alias kctx="kubectx"
 alias kns="kubens"
 
@@ -26,9 +26,9 @@ alias kcgs="kubecolor get services"
 alias kcgd="kubecolor get deployments"
 
 # Quick cluster info
-alias kinfo="kubectl cluster-info"
-alias knodes="kubectl get nodes"
-alias kversion="kubectl version --short"
+alias kinfo="kubecolor cluster-info"
+alias knodes="kubecolor get nodes"
+alias kversion="kubkubecolorectl version --short"
 
 alias k=kubecolor
 compdef _kubectl k
