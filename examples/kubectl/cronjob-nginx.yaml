@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nginx-cronjob
+  labels:
+    app: nginx
+    type: cronjob
+spec:
+  schedule: "0 2 * * *"  # Run daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: nginx
+            type: cronjob
+        spec:
+          containers:
+          - name: nginx-backup
+            image: nginx:1.25
+            command: ["/bin/sh"]
+            args:
+              - -c
+              - |
+                echo "Starting backup job at $(date)"
+                # Simulate backup process
+                tar -czf /tmp/backup-$(date +%Y%m%d).tar.gz /usr/share/nginx/html/
+                echo "Backup completed at $(date)"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "100m"
+              limits:
+                memory: "128Mi"
+                cpu: "200m"
+          restartPolicy: OnFailure
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
