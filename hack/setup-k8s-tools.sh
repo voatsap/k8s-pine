@@ -156,29 +156,44 @@ else
         KUBECOLOR_VERSION=$(curl -s https://api.github.com/repos/kubecolor/kubecolor/releases/latest | grep tag_name | cut -d '"' -f 4 2>/dev/null || echo "v0.3.3")
         echo "Installing kubecolor version: $KUBECOLOR_VERSION"
         
-        # Use simplified download for common case
-        if [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "x86_64" ]]; then
+        # Detect architecture and OS for binary installation
+        ARCH=$(uname -m)
+        case $ARCH in
+            x86_64) ARCH="amd64" ;;
+            arm64|aarch64) ARCH="arm64" ;;
+            *) echo "❌ Unsupported architecture: $ARCH"; ARCH="" ;;
+        esac
+        
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        case $OS in
+            linux) OS="linux" ;;
+            darwin) OS="darwin" ;;
+            *) echo "❌ Unsupported OS: $OS"; OS="" ;;
+        esac
+        
+        if [[ -n "$ARCH" && -n "$OS" ]]; then
             cd "$TEMP_DIR"
-            curl -LO "https://github.com/kubecolor/kubecolor/releases/download/${KUBECOLOR_VERSION}/kubecolor_${KUBECOLOR_VERSION}_linux_x86_64.tar.gz" 2>/dev/null || {
-                echo "⚠️ Binary download failed. You can install kubecolor manually with:"
+            echo "Downloading kubecolor for ${OS}_${ARCH}..."
+            # Remove 'v' prefix from version for filename
+            VERSION_NO_V=${KUBECOLOR_VERSION#v}
+            if curl -LO "https://github.com/kubecolor/kubecolor/releases/download/${KUBECOLOR_VERSION}/kubecolor_${VERSION_NO_V}_${OS}_${ARCH}.tar.gz"; then
+                if tar -xzf "kubecolor_${VERSION_NO_V}_${OS}_${ARCH}.tar.gz"; then
+                    if sudo mv kubecolor "$BIN_DIR/"; then
+                        echo "✅ kubecolor installed successfully"
+                    else
+                        echo "⚠️ Failed to install kubecolor binary. Install manually with go install."
+                    fi
+                else
+                    echo "⚠️ Failed to extract kubecolor. Install manually with:"
+                    echo "   go install github.com/kubecolor/kubecolor@latest"
+                fi
+            else
+                echo "⚠️ Binary download failed. Install manually with:"
                 echo "   go install github.com/kubecolor/kubecolor@latest"
-                echo "Continuing with other tools..."
-                cd - >/dev/null
-                return 0
-            }
-            tar -xzf kubecolor_${KUBECOLOR_VERSION}_linux_x86_64.tar.gz 2>/dev/null || {
-                echo "⚠️ Failed to extract kubecolor. Skipping..."
-                cd - >/dev/null
-                return 0
-            }
-            sudo mv kubecolor "$BIN_DIR/" 2>/dev/null && {
-                echo "✅ kubecolor installed successfully"
-            } || {
-                echo "⚠️ Failed to install kubecolor binary. Install manually with go install."
-            }
+            fi
             cd - >/dev/null
         else
-            echo "⚠️ Automated binary install only supports Linux x86_64. Install manually with:"
+            echo "⚠️ Automated binary install not supported for this platform. Install manually with:"
             echo "   go install github.com/kubecolor/kubecolor@latest"
         fi
     fi
