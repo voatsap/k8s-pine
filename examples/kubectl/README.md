@@ -322,6 +322,146 @@ k rollout status deployment/nginx-deployment
 k rollout history deployment/nginx-deployment
 ```
 
+## 📈 Deployment Scaling Examples
+
+The nginx deployment includes rolling update strategy with:
+- **maxSurge: 1** - Allow 1 extra pod during updates
+- **maxUnavailable: 1** - Allow 1 pod to be unavailable during updates
+
+### Manual Scaling Commands
+
+```bash
+# Scale up to 5 replicas
+k scale deployment nginx-deployment --replicas=5
+
+# Scale down to 2 replicas
+k scale deployment nginx-deployment --replicas=2
+
+# Scale with timeout
+k scale deployment nginx-deployment --replicas=10 --timeout=60s
+
+# Check current replica count
+k get deployment nginx-deployment -o jsonpath='{.spec.replicas}'
+
+# Watch scaling in real-time
+k get pods -w -l app=nginx
+```
+
+### Horizontal Pod Autoscaler (HPA)
+
+```bash
+# Create HPA based on CPU usage (requires metrics-server)
+k autoscale deployment nginx-deployment --cpu-percent=70 --min=2 --max=10
+
+# Create HPA with memory and CPU metrics
+k apply -f - <<EOF
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+EOF
+
+# Check HPA status
+k get hpa
+k describe hpa nginx-hpa
+
+# Delete HPA
+k delete hpa nginx-hpa
+```
+
+### Rolling Update Strategy Examples
+
+```bash
+# Update deployment with new image (triggers rolling update)
+k set image deployment/nginx-deployment nginx=nginx:1.26
+
+# Update with different rolling update settings
+k patch deployment nginx-deployment -p '{
+  "spec": {
+    "strategy": {
+      "rollingUpdate": {
+        "maxSurge": "50%",
+        "maxUnavailable": "25%"
+      }
+    }
+  }
+}'
+
+# Monitor rolling update progress
+k rollout status deployment/nginx-deployment --watch=true
+
+# Pause rollout (useful if issues detected)
+k rollout pause deployment/nginx-deployment
+
+# Resume rollout
+k rollout resume deployment/nginx-deployment
+
+# Rollback to previous version
+k rollout undo deployment/nginx-deployment
+
+# Rollback to specific revision
+k rollout history deployment/nginx-deployment
+k rollout undo deployment/nginx-deployment --to-revision=2
+```
+
+### Load Testing for Scaling
+
+```bash
+# Generate load to test autoscaling (requires HPA)
+k run load-generator --image=busybox --restart=Never -- /bin/sh -c "
+  while true; do
+    wget -q -O- http://nginx-service.default.svc.cluster.local/
+    sleep 0.01
+  done
+"
+
+# Monitor HPA during load test
+k get hpa nginx-hpa --watch
+
+# Clean up load generator
+k delete pod load-generator
+```
+
+### Scaling Best Practices
+
+```bash
+# Check resource requests/limits before scaling
+k describe deployment nginx-deployment | grep -A 10 "Limits\|Requests"
+
+# Monitor resource usage during scaling
+k top pods -l app=nginx
+
+# Check node capacity before large scale operations
+k describe nodes | grep -A 5 "Allocated resources"
+
+# Scale gradually for production workloads
+k scale deployment nginx-deployment --replicas=6
+# Wait and monitor...
+k scale deployment nginx-deployment --replicas=8
+# Wait and monitor...
+k scale deployment nginx-deployment --replicas=10
+```
+
 ### Example 4: Working with ConfigMaps and Secrets
 ```bash
 # Create configmap
