@@ -1,0 +1,49 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+# Log pod creation/deletion at Request level
+- level: Request
+  namespaces: ["default", "production"]
+  resources:
+  - group: ""
+    resources: ["pods"]
+  verbs: ["create", "delete"]
+
+# Log RBAC changes at RequestResponse level
+- level: RequestResponse
+  resources:
+  - group: "rbac.authorization.k8s.io"
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+
+# Log authentication failures
+- level: Metadata
+  omitStages:
+  - RequestReceived
+  resources:
+  - group: ""
+    resources: ["*"]
+  namespaces: ["*"]
+  verbs: ["*"]
+  users: ["system:anonymous"]
+
+# Don't log routine operations
+- level: None
+  users: ["system:kube-proxy"]
+  verbs: ["watch"]
+  resources:
+  - group: ""
+    resources: ["endpoints", "services"]
+
+# Log all secrets access at Metadata level (security)
+- level: Metadata
+  resources:
+  - group: ""
+    resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+
+# Log deployment changes at Request level
+- level: Request
+  resources:
+  - group: "apps"
+    resources: ["deployments", "statefulsets", "daemonsets"]
+  verbs: ["create", "update", "patch", "delete"]

@@ -35,6 +35,12 @@ This directory contains comprehensive examples of Kubernetes resources and kubec
 - **`serviceaccount-examples.yaml`** - ServiceAccounts for RBAC testing
 - **`pod-with-serviceaccount.yaml`** - Pod using ServiceAccount for RBAC testing
 
+### Audit Logging and Tracing
+- **`audit-policy.yaml`** - Comprehensive audit policy for self-managed clusters
+- **`audit-trace.sh`** - Interactive script for tracing Kubernetes operations
+- **`pod-audit-test.yaml`** - Test pod for audit logging demonstrations
+- **`deployment-audit-test.yaml`** - Test deployment for audit tracing
+
 ## 🚀 Quick Start Commands
 
 ### Apply Resources
@@ -684,6 +690,236 @@ k get secret nginx-secret -o yaml
 
 # Decode secret
 k get secret nginx-secret -o jsonpath='{.data.password}' | base64 -d
+```
+
+## 📊 Audit Logging and Tracing Examples
+
+Kubernetes audit logging provides detailed records of all API server requests, making it essential for security monitoring, compliance, and troubleshooting. Here's how to trace pod creation and other operations.
+
+### Understanding Audit Logs
+
+**Audit logs capture:**
+- **Who** made the request (user, ServiceAccount)
+- **What** action was performed (create, update, delete)
+- **When** the request occurred (timestamp)
+- **Where** the request came from (source IP)
+- **What resource** was affected (pod, deployment, etc.)
+- **Request/Response details** (full object data)
+
+### Quick Pod Creation Tracing
+
+#### 1. Enable Audit Logging (Cluster Admin Required)
+
+```bash
+# Check if audit logging is enabled
+k get events --sort-by=.metadata.creationTimestamp | head -10
+
+# For managed clusters (GKE, EKS, AKS), audit logs are usually available through cloud logging
+# For self-managed clusters, you need to configure audit policy
+```
+
+#### 2. Trace Pod Creation with Events
+
+```bash
+# Apply test pod for tracing
+k apply -f pod-audit-test.yaml
+
+# Watch events in real-time during pod creation
+k get events --watch &
+k run traced-pod --image=nginx --restart=Never
+
+# Stop watching
+kill %1
+
+# Get events for specific pod
+k get events --field-selector involvedObject.name=audit-test-pod
+
+# Get events sorted by time
+k get events --sort-by=.metadata.creationTimestamp | grep audit-test-pod
+
+# Get detailed event information
+k describe events --field-selector involvedObject.name=audit-test-pod
+
+# Apply deployment for more complex tracing
+k apply -f deployment-audit-test.yaml
+k get events --field-selector involvedObject.name=audit-test-deployment
+```
+
+#### 3. Trace with Verbose kubectl Output
+
+```bash
+# Create pod with maximum verbosity to see API calls
+k run verbose-pod --image=nginx --restart=Never --v=9
+
+# Delete with verbose output
+k delete pod verbose-pod --v=9
+
+# Apply with verbose output to see all API interactions
+k apply -f pod-with-serviceaccount.yaml --v=8
+```
+
+#### 4. Monitor API Server Logs (Self-Managed Clusters)
+
+```bash
+# View API server logs (if accessible)
+k logs -n kube-system -l component=kube-apiserver --tail=100
+
+# Follow API server logs during operations
+k logs -n kube-system -l component=kube-apiserver -f &
+k create deployment trace-test --image=nginx
+kill %1
+
+# Search for specific operations in logs
+k logs -n kube-system -l component=kube-apiserver --tail=1000 | grep "POST.*pods"
+```
+
+#### 5. Cloud Provider Audit Logs
+
+**For GKE (Google Cloud):**
+```bash
+# Enable audit logs in GKE cluster
+gcloud container clusters update CLUSTER_NAME \
+    --enable-cloud-logging \
+    --logging=SYSTEM,WORKLOAD,API_SERVER
+
+# Query audit logs with gcloud
+gcloud logging read 'resource.type="k8s_cluster"
+    AND protoPayload.methodName="io.k8s.core.v1.pods.create"
+    AND protoPayload.resourceName=~"pods/traced-pod"' \
+    --limit=10 --format=json
+```
+
+**For EKS (AWS):**
+```bash
+# Enable audit logging in EKS
+aws eks update-cluster-config \
+    --name CLUSTER_NAME \
+    --logging '{"enable":["api","audit","authenticator"]}'
+
+# Query CloudWatch logs
+aws logs filter-log-events \
+    --log-group-name /aws/eks/CLUSTER_NAME/cluster \
+    --filter-pattern "{ $.verb = \"create\" && $.objectRef.resource = \"pods\" }"
+```
+
+#### 6. Real-Time Audit Tracing Script
+
+```bash
+# Make the audit tracing script executable
+chmod +x audit-trace.sh
+
+# Use the interactive audit tracing script
+./audit-trace.sh trace my-test-pod    # Trace creation of specific pod
+./audit-trace.sh debug existing-pod   # Debug existing pod issues
+./audit-trace.sh monitor              # Monitor security events
+./audit-trace.sh analyze              # Analyze audit patterns
+
+# Script usage examples:
+./audit-trace.sh trace                # Creates and traces a timestamped pod
+./audit-trace.sh debug audit-test-pod # Debug the test pod we created
+./audit-trace.sh monitor              # Watch for security events in real-time
+./audit-trace.sh analyze              # Show recent audit patterns and statistics
+```
+
+#### 7. Audit Log Analysis Examples
+
+```bash
+# Find all pod creation events
+k get events --all-namespaces | grep "Created pod"
+
+# Find failed pod creations
+k get events --all-namespaces | grep -E "(Failed|Error).*pod"
+
+# Find events by specific user (if audit logs available)
+# This would be in actual audit logs, not events
+grep '"user":{"username":"developer"}' /var/log/audit.log | grep '"verb":"create"'
+
+# Find all RBAC denials
+k get events --all-namespaces | grep "Forbidden"
+
+# Monitor resource creation patterns
+k get events --all-namespaces --sort-by=.metadata.creationTimestamp | grep "Created"
+```
+
+#### 8. Event-Based Monitoring Commands
+
+```bash
+# Monitor all events in real-time
+k get events --all-namespaces --watch
+
+# Filter events by type
+k get events --all-namespaces --field-selector type=Warning
+
+# Filter events by reason
+k get events --all-namespaces --field-selector reason=Failed
+
+# Get events for last hour
+k get events --all-namespaces --field-selector metadata.creationTimestamp>$(date -d '1 hour ago' -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Custom columns for better readability
+k get events --all-namespaces -o custom-columns=TIME:.metadata.creationTimestamp,NAMESPACE:.namespace,TYPE:.type,REASON:.reason,OBJECT:.involvedObject.name,MESSAGE:.message
+```
+
+#### 9. Troubleshooting with Audit Information
+
+```bash
+# Debug pod creation failures
+debug_pod_creation() {
+    local pod_name=$1
+    
+    echo "=== POD STATUS ==="
+    k get pod $pod_name -o wide
+    
+    echo "=== POD EVENTS ==="
+    k get events --field-selector involvedObject.name=$pod_name
+    
+    echo "=== POD DESCRIPTION ==="
+    k describe pod $pod_name
+    
+    echo "=== NODE EVENTS (if scheduled) ==="
+    local node=$(k get pod $pod_name -o jsonpath='{.spec.nodeName}' 2>/dev/null)
+    if [[ -n "$node" ]]; then
+        k get events --field-selector involvedObject.name=$node | tail -10
+    fi
+}
+
+# Usage
+debug_pod_creation "problematic-pod"
+```
+
+### Audit Log Best Practices
+
+```bash
+# 1. Regular audit log review
+k get events --all-namespaces --sort-by=.metadata.creationTimestamp | tail -50
+
+# 2. Monitor for security events
+k get events --all-namespaces | grep -E "(Forbidden|Unauthorized|Failed)"
+
+# 3. Track resource creation patterns
+k get events --all-namespaces | grep "Created" | awk '{print $6}' | sort | uniq -c
+
+# 4. Monitor RBAC usage
+k get events --all-namespaces | grep -E "(role|binding)"
+
+# 5. Set up alerts for critical events
+k get events --all-namespaces --field-selector type=Warning --watch
+```
+
+### Cleanup Audit Test Resources
+
+```bash
+# Clean up audit test resources
+k delete -f pod-audit-test.yaml --ignore-not-found=true
+k delete -f deployment-audit-test.yaml --ignore-not-found=true
+
+# Clean up any pods created by the tracing script
+k delete pod traced-pod --ignore-not-found=true
+k get pods | grep -E "traced-pod-[0-9]+" | awk '{print $1}' | xargs -r k delete pod
+
+# Remove any other test resources created during tracing
+k get pods | grep -E "(audit|trace|verbose)" | awk '{print $1}' | xargs -r k delete pod
+k delete deployment trace-test --ignore-not-found=true
 ```
 
 ## 📚 Additional Resources
