@@ -23,6 +23,18 @@ This directory contains comprehensive examples of Kubernetes resources and kubec
 - **`pvc-random-generator.yaml`** - Persistent Volume Claim
 - **`namespace.yaml`** - Namespace with ResourceQuota
 
+### RBAC (Role-Based Access Control)
+- **`role-pod-reader.yaml`** - Role for reading pods and logs
+- **`rolebinding-pod-reader.yaml`** - Bind pod-reader role to users/ServiceAccounts
+- **`role-deployment-manager.yaml`** - Role for managing deployments
+- **`rolebinding-deployment-manager.yaml`** - Bind deployment-manager role
+- **`clusterrole-node-reader.yaml`** - ClusterRole for reading nodes
+- **`clusterrolebinding-node-reader.yaml`** - Bind node-reader ClusterRole
+- **`clusterrole-namespace-admin.yaml`** - ClusterRole for namespace administration
+- **`clusterrolebinding-namespace-admin.yaml`** - Bind namespace-admin ClusterRole
+- **`serviceaccount-examples.yaml`** - ServiceAccounts for RBAC testing
+- **`pod-with-serviceaccount.yaml`** - Pod using ServiceAccount for RBAC testing
+
 ## 🚀 Quick Start Commands
 
 ### Apply Resources
@@ -460,6 +472,200 @@ k scale deployment nginx-deployment --replicas=6
 k scale deployment nginx-deployment --replicas=8
 # Wait and monitor...
 k scale deployment nginx-deployment --replicas=10
+```
+
+## 🔐 RBAC (Role-Based Access Control) Examples
+
+### Understanding RBAC Components
+
+**RBAC consists of four main components:**
+- **Role/ClusterRole** - Defines permissions (what can be done)
+- **RoleBinding/ClusterRoleBinding** - Grants permissions (who can do it)
+- **ServiceAccount** - Identity for pods/applications
+- **User/Group** - Identity for human users
+
+### RBAC Resource Hierarchy
+
+```
+Namespace-Scoped:          Cluster-Scoped:
+├── Role                   ├── ClusterRole
+├── RoleBinding            ├── ClusterRoleBinding
+└── ServiceAccount        └── Node, PV, StorageClass, etc.
+```
+
+### Apply RBAC Examples
+
+```bash
+# Apply all RBAC resources
+k apply -f serviceaccount-examples.yaml
+k apply -f role-pod-reader.yaml
+k apply -f rolebinding-pod-reader.yaml
+k apply -f role-deployment-manager.yaml
+k apply -f rolebinding-deployment-manager.yaml
+k apply -f clusterrole-node-reader.yaml
+k apply -f clusterrolebinding-node-reader.yaml
+k apply -f clusterrole-namespace-admin.yaml
+k apply -f clusterrolebinding-namespace-admin.yaml
+
+# Deploy test pod with ServiceAccount
+k apply -f pod-with-serviceaccount.yaml
+```
+
+### Testing RBAC Permissions
+
+#### 1. Test ServiceAccount Permissions in Pod
+
+```bash
+# Exec into the RBAC test pod
+k exec -it rbac-test-pod -- /bin/bash
+
+# Inside the pod, test permissions:
+# ✅ Should work (pod-reader role allows this)
+kubectl get pods
+kubectl get pods nginx-statefulset-0 -o yaml
+kubectl logs nginx-statefulset-0
+
+# ❌ Should fail (pod-reader role doesn't allow this)
+kubectl delete pod nginx-statefulset-0
+kubectl create deployment test --image=nginx
+kubectl get nodes
+
+# Exit the pod
+exit
+```
+
+#### 2. Check Role Permissions
+
+```bash
+# View role permissions
+k describe role pod-reader
+k describe role deployment-manager
+
+# View ClusterRole permissions
+k describe clusterrole node-reader
+k describe clusterrole namespace-admin
+
+# Check what a ServiceAccount can do
+k auth can-i get pods --as=system:serviceaccount:default:pod-reader-sa
+k auth can-i delete pods --as=system:serviceaccount:default:pod-reader-sa
+k auth can-i create deployments --as=system:serviceaccount:default:deployment-manager-sa
+```
+
+#### 3. Test User Permissions (Simulated)
+
+```bash
+# Check permissions for different users
+k auth can-i get pods --as=developer
+k auth can-i delete deployments --as=devops-user
+k auth can-i get nodes --as=monitoring-user
+k auth can-i create namespaces --as=platform-admin
+
+# List all permissions for a user
+k auth can-i --list --as=developer
+k auth can-i --list --as=system:serviceaccount:default:pod-reader-sa
+```
+
+#### 4. View RBAC Bindings
+
+```bash
+# View RoleBindings
+k get rolebindings
+k describe rolebinding read-pods
+
+# View ClusterRoleBindings
+k get clusterrolebindings
+k describe clusterrolebinding read-nodes
+
+# Find all bindings for a specific user/ServiceAccount
+k get rolebindings,clusterrolebindings -o wide | grep pod-reader-sa
+```
+
+### RBAC Troubleshooting
+
+```bash
+# Check if RBAC is enabled
+k api-versions | grep rbac
+
+# View current user context
+k config current-context
+k config view --minify
+
+# Debug permission issues
+k auth can-i create pods --v=6
+k auth can-i get nodes --as=system:serviceaccount:default:pod-reader-sa --v=6
+
+# View ServiceAccount token and permissions
+k get serviceaccount pod-reader-sa -o yaml
+k describe secret $(k get serviceaccount pod-reader-sa -o jsonpath='{.secrets[0].name}')
+```
+
+### Common RBAC Patterns
+
+#### Pattern 1: Read-Only Access
+```bash
+# Create a read-only role for specific resources
+k create role readonly --verb=get,list,watch --resource=pods,services,configmaps
+k create rolebinding readonly-binding --role=readonly --user=readonly-user
+```
+
+#### Pattern 2: Namespace Admin
+```bash
+# Grant admin access to a specific namespace
+k create rolebinding admin-binding --clusterrole=admin --user=namespace-admin --namespace=production
+```
+
+#### Pattern 3: Cross-Namespace Access
+```bash
+# Use ClusterRole with RoleBinding for cross-namespace access
+k create rolebinding cross-ns-access --clusterrole=view --user=developer --namespace=staging
+```
+
+#### Pattern 4: Service Account for Applications
+```bash
+# Create ServiceAccount for application
+k create serviceaccount app-sa
+k create role app-role --verb=get,list --resource=configmaps,secrets
+k create rolebinding app-binding --role=app-role --serviceaccount=default:app-sa
+
+# Use in deployment
+kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"serviceAccountName":"app-sa"}}}}'
+```
+
+### RBAC Security Best Practices
+
+```bash
+# 1. Principle of Least Privilege - Grant minimal required permissions
+k create role minimal-role --verb=get --resource=pods --resource-name=specific-pod
+
+# 2. Use specific resource names when possible
+k create role specific-access --verb=get,update --resource=configmaps --resource-name=app-config
+
+# 3. Avoid using wildcards in production
+# ❌ Bad: --verb=* --resource=*
+# ✅ Good: --verb=get,list,watch --resource=pods,services
+
+# 4. Regular audit of permissions
+k get rolebindings,clusterrolebindings -o wide
+k auth can-i --list --as=system:serviceaccount:default:suspicious-sa
+
+# 5. Use groups for user management
+k create clusterrolebinding developers --clusterrole=view --group=developers
+```
+
+### Cleanup RBAC Resources
+
+```bash
+# Delete RBAC test resources
+k delete -f pod-with-serviceaccount.yaml
+k delete -f serviceaccount-examples.yaml
+k delete -f role-pod-reader.yaml
+k delete -f rolebinding-pod-reader.yaml
+k delete -f role-deployment-manager.yaml
+k delete -f rolebinding-deployment-manager.yaml
+k delete -f clusterrole-node-reader.yaml
+k delete -f clusterrolebinding-node-reader.yaml
+k delete -f clusterrole-namespace-admin.yaml
+k delete -f clusterrolebinding-namespace-admin.yaml
 ```
 
 ### Example 4: Working with ConfigMaps and Secrets
