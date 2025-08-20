@@ -1,0 +1,30 @@
+# Example: Taint a node for dedicated workloads
+# This is a command example - run manually to taint your nodes
+# 
+# To apply this taint to a specific node:
+# kubectl taint nodes NODE_NAME dedicated=critical:PreferNoSchedule
+#
+# To remove this taint:
+# kubectl taint nodes NODE_NAME dedicated=critical:PreferNoSchedule-
+#
+# Example commands for your 4-node GKE cluster:
+# NODE3=$(kubectl get nodes -o jsonpath='{.items[2].metadata.name}')
+# kubectl taint nodes $NODE3 dedicated=critical:PreferNoSchedule
+# kubectl label nodes $NODE3 workload=critical
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taint-dedicated-nodes-script
+data:
+  taint-nodes.sh: |
+    #!/bin/bash
+    # Taint third node for dedicated critical workloads
+    NODE3=$(kubectl get nodes -o jsonpath='{.items[2].metadata.name}')
+    echo "Tainting node $NODE3 for dedicated critical workloads..."
+    kubectl taint nodes $NODE3 dedicated=critical:PreferNoSchedule
+    kubectl label nodes $NODE3 workload=critical
+    
+    echo "Dedicated workload node taint applied successfully!"
+    echo "To verify: kubectl describe node $NODE3 | grep -A 3 Taints"

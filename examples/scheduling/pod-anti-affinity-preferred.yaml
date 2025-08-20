@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flexible-distributed-app
+  labels:
+    app: flexible-distributed-app
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: flexible-distributed-app
+  template:
+    metadata:
+      labels:
+        app: flexible-distributed-app
+        tier: application
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - flexible-distributed-app
+              topologyKey: kubernetes.io/hostname
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: tier
+                  operator: In
+                  values:
+                  - application
+              topologyKey: topology.kubernetes.io/zone
+      containers:
+      - name: app-server
+        image: httpd:2.4
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-pool
+  labels:
+    app: worker-pool
+spec:
+  replicas: 8
+  selector:
+    matchLabels:
+      app: worker-pool
+  template:
+    metadata:
+      labels:
+        app: worker-pool
+        tier: worker
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - worker-pool
+              topologyKey: kubernetes.io/hostname
+          - weight: 40
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: tier
+                  operator: In
+                  values:
+                  - worker
+              topologyKey: topology.kubernetes.io/zone
+      containers:
+      - name: worker
+        image: busybox:1.35
+        command: ["sh", "-c", "while true; do echo 'Processing...'; sleep 30; done"]
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

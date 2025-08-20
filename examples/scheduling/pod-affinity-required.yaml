@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cache-redis
+  labels:
+    app: cache-redis
+    tier: cache
+spec:
+  containers:
+  - name: redis
+    image: redis:7-alpine
+    ports:
+    - containerPort: 6379
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "400m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-with-cache
+  labels:
+    app: web-with-cache
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-with-cache
+  template:
+    metadata:
+      labels:
+        app: web-with-cache
+        tier: frontend
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - cache-redis
+              - key: tier
+                operator: In
+                values:
+                - cache
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: web-app
+        image: nginx:1.25
+        ports:
+        - containerPort: 80
+        env:
+        - name: REDIS_HOST
+          value: "localhost"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"

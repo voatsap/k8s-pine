@@ -1,0 +1,202 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hybrid-scheduling-app
+  labels:
+    app: hybrid-scheduling-app
+spec:
+  replicas: 8
+  selector:
+    matchLabels:
+      app: hybrid-scheduling-app
+  template:
+    metadata:
+      labels:
+        app: hybrid-scheduling-app
+        tier: hybrid
+    spec:
+      # Mix of required and preferred constraints
+      affinity:
+        nodeAffinity:
+          # REQUIRED: Must run on specific architecture
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          # PREFERRED: Better performance on these node types
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - compute-optimized
+          - weight: 60
+            preference:
+              matchExpressions:
+              - key: instance-size
+                operator: In
+                values:
+                - medium
+                - large
+        podAffinity:
+          # PREFERRED: Co-locate with cache pods if available
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 70
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: tier
+                  operator: In
+                  values:
+                  - cache
+              topologyKey: kubernetes.io/hostname
+        podAntiAffinity:
+          # REQUIRED: Never schedule two pods on same node
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - hybrid-scheduling-app
+            topologyKey: kubernetes.io/hostname
+      # REQUIRED: Strict zone distribution
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: hybrid-scheduling-app
+      # PREFERRED: Try to balance across nodes
+      - maxSkew: 2
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hybrid-scheduling-app
+      containers:
+      - name: hybrid-service
+        image: nginx:1.25
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "300m"
+          limits:
+            memory: "1Gi"
+            cpu: "600m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enterprise-workload
+  labels:
+    app: enterprise-workload
+spec:
+  replicas: 12
+  selector:
+    matchLabels:
+      app: enterprise-workload
+  template:
+    metadata:
+      labels:
+        app: enterprise-workload
+        tier: enterprise
+    spec:
+      # Complex scheduling policy combining multiple constraints
+      affinity:
+        nodeAffinity:
+          # REQUIRED: Must have sufficient resources
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: NotIn
+                values:
+                - t2.micro
+                - t2.small
+          # PREFERRED: Optimize for performance and cost
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-tier
+                operator: In
+                values:
+                - premium
+          - weight: 80
+            preference:
+              matchExpressions:
+              - key: cost-optimization
+                operator: In
+                values:
+                - spot-instance
+          - weight: 60
+            preference:
+              matchExpressions:
+              - key: network-tier
+                operator: In
+                values:
+                - high-bandwidth
+        podAntiAffinity:
+          # REQUIRED: High availability across zones
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - enterprise-workload
+            topologyKey: topology.kubernetes.io/zone
+          # PREFERRED: Spread across nodes within zones
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - enterprise-workload
+              topologyKey: kubernetes.io/hostname
+      # Multiple topology constraints
+      topologySpreadConstraints:
+      # REQUIRED: Even zone distribution
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: enterprise-workload
+      # PREFERRED: Balance across instance types
+      - maxSkew: 3
+        topologyKey: node.kubernetes.io/instance-type
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: enterprise-workload
+      tolerations:
+      - key: "enterprise-workload"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+      - name: enterprise-app
+        image: openjdk:17-jre-slim
+        command: ["java", "-jar", "/app/enterprise-app.jar"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"

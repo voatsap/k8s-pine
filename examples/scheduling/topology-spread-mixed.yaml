@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ha-distributed-app
+  labels:
+    app: ha-distributed-app
+spec:
+  replicas: 12
+  selector:
+    matchLabels:
+      app: ha-distributed-app
+  template:
+    metadata:
+      labels:
+        app: ha-distributed-app
+        tier: application
+    spec:
+      topologySpreadConstraints:
+      # Spread across zones first (higher priority)
+      - maxSkew: 2
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: ha-distributed-app
+      # Then spread across nodes within zones
+      - maxSkew: 3
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: ha-distributed-app
+      containers:
+      - name: web-server
+        image: nginx:1.25
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microservice-mesh
+  labels:
+    app: microservice-mesh
+spec:
+  replicas: 16
+  selector:
+    matchLabels:
+      app: microservice-mesh
+  template:
+    metadata:
+      labels:
+        app: microservice-mesh
+        tier: microservice
+    spec:
+      topologySpreadConstraints:
+      # Zone-level spreading (strict)
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: microservice-mesh
+      # Node-level spreading (flexible)
+      - maxSkew: 4
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: microservice-mesh
+      # Instance type spreading (best effort)
+      - maxSkew: 6
+        topologyKey: node.kubernetes.io/instance-type
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: microservice-mesh
+      containers:
+      - name: service
+        image: node:18-alpine
+        command: ["node", "-e", "console.log('Microservice running...'); setInterval(() => {}, 1000);"]
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

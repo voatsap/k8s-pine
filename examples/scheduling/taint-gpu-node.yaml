@@ -1,0 +1,31 @@
+# Example: Taint a node for GPU workloads
+# This is a command example - run manually to taint your nodes
+# 
+# To apply this taint to a specific node:
+# kubectl taint nodes NODE_NAME workload=gpu:NoSchedule
+#
+# To remove this taint:
+# kubectl taint nodes NODE_NAME workload=gpu:NoSchedule-
+#
+# Example commands for your 4-node GKE cluster:
+# NODE1=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+# kubectl taint nodes $NODE1 workload=gpu:NoSchedule
+# kubectl label nodes $NODE1 workload-type=gpu
+
+---
+# You can also create a script to taint multiple nodes
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taint-gpu-nodes-script
+data:
+  taint-nodes.sh: |
+    #!/bin/bash
+    # Taint first node for GPU workloads
+    NODE1=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+    echo "Tainting node $NODE1 for GPU workloads..."
+    kubectl taint nodes $NODE1 workload=gpu:NoSchedule
+    kubectl label nodes $NODE1 workload-type=gpu
+    
+    echo "GPU node taint applied successfully!"
+    echo "To verify: kubectl describe node $NODE1 | grep -A 3 Taints"

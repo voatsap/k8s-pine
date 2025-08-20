@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: critical-app-required
+  labels:
+    app: critical-app-required
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: critical-app-required
+  template:
+    metadata:
+      labels:
+        app: critical-app-required
+        tier: critical
+    spec:
+      # Required scheduling constraints - pod MUST be scheduled according to these rules
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - high-memory
+                - compute-optimized
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - critical-app-required
+            topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: critical-app-required
+      tolerations:
+      - key: "critical-workload"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+      - name: critical-service
+        image: nginx:1.25
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-required
+  labels:
+    app: database-required
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database-required
+  template:
+    metadata:
+      labels:
+        app: database-required
+        tier: database
+    spec:
+      # Strict requirements for database placement
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: storage-type
+                operator: In
+                values:
+                - ssd
+                - nvme
+              - key: node-role
+                operator: In
+                values:
+                - database
+                - storage
+      tolerations:
+      - key: "database-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "critical_db"
+        - name: POSTGRES_USER
+          value: "dbuser"
+        - name: POSTGRES_PASSWORD
+          value: "securepassword"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"

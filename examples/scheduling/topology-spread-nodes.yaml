@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-spread-app
+  labels:
+    app: node-spread-app
+spec:
+  replicas: 8
+  selector:
+    matchLabels:
+      app: node-spread-app
+  template:
+    metadata:
+      labels:
+        app: node-spread-app
+        tier: application
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 2
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: node-spread-app
+      containers:
+      - name: app-server
+        image: httpd:2.4
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: balanced-workload
+  labels:
+    app: balanced-workload
+spec:
+  replicas: 12
+  selector:
+    matchLabels:
+      app: balanced-workload
+  template:
+    metadata:
+      labels:
+        app: balanced-workload
+        tier: worker
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 3
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: balanced-workload
+      containers:
+      - name: worker
+        image: busybox:1.35
+        command: ["sh", "-c", "while true; do echo 'Working...'; sleep 60; done"]
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-affinity-preferred-pod
+  labels:
+    app: node-affinity-preferred
+spec:
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 80
+        preference:
+          matchExpressions:
+          - key: node.kubernetes.io/instance-type
+            operator: In
+            values:
+            - n1-standard-4
+            - n1-standard-2
+      - weight: 20
+        preference:
+          matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - us-central1-a
+            - us-central1-b
+  containers:
+  - name: app
+    image: nginx:1.25
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flexible-web-app
+  labels:
+    app: flexible-web-app
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: flexible-web-app
+  template:
+    metadata:
+      labels:
+        app: flexible-web-app
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: cloud.google.com/gke-preemptible
+                operator: DoesNotExist
+          - weight: 50
+            preference:
+              matchExpressions:
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - us-central1-a
+      containers:
+      - name: web-app
+        image: httpd:2.4
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"

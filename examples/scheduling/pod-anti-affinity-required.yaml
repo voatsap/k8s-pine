@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ha-web-app
+  labels:
+    app: ha-web-app
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: ha-web-app
+  template:
+    metadata:
+      labels:
+        app: ha-web-app
+        tier: frontend
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - ha-web-app
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: web-server
+        image: nginx:1.25
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: distributed-cache
+  labels:
+    app: distributed-cache
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: distributed-cache
+  template:
+    metadata:
+      labels:
+        app: distributed-cache
+        tier: cache
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - distributed-cache
+              - key: tier
+                operator: In
+                values:
+                - cache
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"

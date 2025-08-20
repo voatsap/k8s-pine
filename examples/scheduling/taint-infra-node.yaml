@@ -1,0 +1,30 @@
+# Example: Taint a node for infrastructure workloads
+# This is a command example - run manually to taint your nodes
+# 
+# To apply this taint to a specific node:
+# kubectl taint nodes NODE_NAME dedicated=infra:NoExecute
+#
+# To remove this taint:
+# kubectl taint nodes NODE_NAME dedicated=infra:NoExecute-
+#
+# Example commands for your 4-node GKE cluster:
+# NODE2=$(kubectl get nodes -o jsonpath='{.items[1].metadata.name}')
+# kubectl taint nodes $NODE2 dedicated=infra:NoExecute
+# kubectl label nodes $NODE2 node-type=infrastructure
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taint-infra-nodes-script
+data:
+  taint-nodes.sh: |
+    #!/bin/bash
+    # Taint second node for infrastructure workloads
+    NODE2=$(kubectl get nodes -o jsonpath='{.items[1].metadata.name}')
+    echo "Tainting node $NODE2 for infrastructure workloads..."
+    kubectl taint nodes $NODE2 dedicated=infra:NoExecute
+    kubectl label nodes $NODE2 node-type=infrastructure
+    
+    echo "Infrastructure node taint applied successfully!"
+    echo "To verify: kubectl describe node $NODE2 | grep -A 3 Taints"

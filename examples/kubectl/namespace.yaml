@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: nginx-namespace
-  labels:
-    name: nginx-namespace
-    environment: development
-  annotations:
-    description: "Namespace for nginx applications"
+    name: voatsap
+    labels:
+        name: voatsap
+        environment: development
+    annotations:
+        description: "Namespace for voatsap applications"
 ---
 apiVersion: v1
 kind: ResourceQuota
