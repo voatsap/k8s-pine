@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keda
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keda-operator
+  namespace: keda
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keda-operator
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["autoscaling"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["keda.sh"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keda-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: keda-operator
+subjects:
+- kind: ServiceAccount
+  name: keda-operator
+  namespace: keda
+---
+# ConfigMap for KEDA installation script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keda-install-script
+  namespace: keda
+data:
+  install-keda.sh: |
+    #!/bin/bash
+    echo "Installing KEDA using Helm..."
+    
+    # Add KEDA Helm repository
+    helm repo add kedacore https://kedacore.github.io/charts
+    helm repo update
+    
+    # Install KEDA
+    helm install keda kedacore/keda --namespace keda --create-namespace
+    
+    # Wait for KEDA to be ready
+    echo "Waiting for KEDA operator to be ready..."
+    kubectl wait --for=condition=available --timeout=300s deployment/keda-operator -n keda
+    kubectl wait --for=condition=available --timeout=300s deployment/keda-metrics-apiserver -n keda
+    
+    echo "KEDA installation completed!"
+    echo "Verify installation:"
+    echo "kubectl get pods -n keda"
+    echo "kubectl get crd | grep keda"
+---
+# Alternative: KEDA installation via kubectl
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keda-kubectl-install
+  namespace: keda
+data:
+  install-keda-kubectl.sh: |
+    #!/bin/bash
+    echo "Installing KEDA using kubectl..."
+    
+    # Install KEDA
+    kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.12.0/keda-2.12.0.yaml
+    
+    # Wait for KEDA to be ready
+    echo "Waiting for KEDA operator to be ready..."
+    kubectl wait --for=condition=available --timeout=300s deployment/keda-operator -n keda
+    kubectl wait --for=condition=available --timeout=300s deployment/keda-metrics-apiserver -n keda
+    
+    echo "KEDA installation completed!"
+    echo "Verify installation:"
+    echo "kubectl get pods -n keda"
+    echo "kubectl get crd | grep keda"

@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-consumer
+  labels:
+    app: rabbitmq-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq-consumer
+  template:
+    metadata:
+      labels:
+        app: rabbitmq-consumer
+    spec:
+      containers:
+      - name: consumer
+        image: python:3.11-slim
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          pip install pika
+          python -c "
+          import pika
+          import time
+          import os
+          
+          # Connect to RabbitMQ
+          connection = pika.BlockingConnection(
+              pika.ConnectionParameters(
+                  host=os.getenv('RABBITMQ_HOST', 'rabbitmq-service'),
+                  port=int(os.getenv('RABBITMQ_PORT', '5672')),
+                  virtual_host=os.getenv('RABBITMQ_VHOST', '/'),
+                  credentials=pika.PlainCredentials(
+                      os.getenv('RABBITMQ_USER', 'guest'),
+                      os.getenv('RABBITMQ_PASS', 'guest')
+                  )
+              )
+          )
+          channel = connection.channel()
+          
+          # Declare queue
+          queue_name = os.getenv('RABBITMQ_QUEUE', 'task_queue')
+          channel.queue_declare(queue=queue_name, durable=True)
+          
+          def callback(ch, method, properties, body):
+              print(f'Processing message: {body.decode()}')
+              time.sleep(5)  # Simulate work
+              ch.basic_ack(delivery_tag=method.delivery_tag)
+              print('Message processed')
+          
+          channel.basic_qos(prefetch_count=1)
+          channel.basic_consume(queue=queue_name, on_message_callback=callback)
+          
+          print('Waiting for messages. To exit press CTRL+C')
+          channel.start_consuming()
+          "
+        env:
+        - name: RABBITMQ_HOST
+          value: "rabbitmq-service"
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: RABBITMQ_USER
+          value: "guest"
+        - name: RABBITMQ_PASS
+          value: "guest"
+        - name: RABBITMQ_QUEUE
+          value: "task_queue"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-service
+  labels:
+    app: rabbitmq
+spec:
+  ports:
+  - port: 5672
+    targetPort: 5672
+    name: amqp
+  - port: 15672
+    targetPort: 15672
+    name: management
+  selector:
+    app: rabbitmq
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  labels:
+    app: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.12-management
+        ports:
+        - containerPort: 5672
+          name: amqp
+        - containerPort: 15672
+          name: management
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: "guest"
+        - name: RABBITMQ_DEFAULT_PASS
+          value: "guest"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+      volumes:
+      - name: rabbitmq-data
+        emptyDir: {}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: rabbitmq-auth
+spec:
+  secretTargetRef:
+  - parameter: host
+    name: rabbitmq-secret
+    key: host
+  - parameter: username
+    name: rabbitmq-secret
+    key: username
+  - parameter: password
+    name: rabbitmq-secret
+    key: password
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: rabbitmq-consumer-scaler
+spec:
+  scaleTargetRef:
+    name: rabbitmq-consumer
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+  - type: rabbitmq
+    metadata:
+      protocol: amqp
+      queueName: task_queue
+      mode: QueueLength
+      value: "5"
+    authenticationRef:
+      name: rabbitmq-auth
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-secret
+type: Opaque
+data:
+  host: YW1xcDovL3JhYmJpdG1xLXNlcnZpY2Uudm9hdHNhcC5zdmMuY2x1c3Rlci5sb2NhbDo1Njcy  # amqp://rabbitmq-service.voatsap.svc.cluster.local:5672
+  username: Z3Vlc3Q=  # guest
+  password: Z3Vlc3Q=  # guest

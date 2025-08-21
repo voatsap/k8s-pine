@@ -1,0 +1,168 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rabbitmq-message-producer
+  labels:
+    app: message-producer
+spec:
+  template:
+    spec:
+      containers:
+      - name: producer
+        image: python:3.11-slim
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          pip install pika
+          python -c "
+          import pika
+          import time
+          import os
+          import sys
+          
+          # Connect to RabbitMQ
+          connection = pika.BlockingConnection(
+              pika.ConnectionParameters(
+                  host=os.getenv('RABBITMQ_HOST', 'rabbitmq-service'),
+                  port=int(os.getenv('RABBITMQ_PORT', '5672')),
+                  virtual_host=os.getenv('RABBITMQ_VHOST', '/'),
+                  credentials=pika.PlainCredentials(
+                      os.getenv('RABBITMQ_USER', 'guest'),
+                      os.getenv('RABBITMQ_PASS', 'guest')
+                  )
+              )
+          )
+          channel = connection.channel()
+          
+          # Declare queue
+          queue_name = os.getenv('RABBITMQ_QUEUE', 'task_queue')
+          channel.queue_declare(queue=queue_name, durable=True)
+          
+          # Send messages
+          message_count = int(os.getenv('MESSAGE_COUNT', '50'))
+          batch_size = int(os.getenv('BATCH_SIZE', '10'))
+          
+          print(f'Sending {message_count} messages in batches of {batch_size}')
+          
+          for i in range(message_count):
+              message = f'Task message {i+1} - {time.time()}'
+              channel.basic_publish(
+                  exchange='',
+                  routing_key=queue_name,
+                  body=message,
+                  properties=pika.BasicProperties(delivery_mode=2)  # Make message persistent
+              )
+              
+              if (i + 1) % batch_size == 0:
+                  print(f'Sent {i+1} messages')
+                  time.sleep(1)  # Small delay between batches
+          
+          print(f'Finished sending {message_count} messages')
+          connection.close()
+          "
+        env:
+        - name: RABBITMQ_HOST
+          value: "rabbitmq-service"
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: RABBITMQ_USER
+          value: "guest"
+        - name: RABBITMQ_PASS
+          value: "guest"
+        - name: RABBITMQ_QUEUE
+          value: "task_queue"
+        - name: MESSAGE_COUNT
+          value: "50"
+        - name: BATCH_SIZE
+          value: "10"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      restartPolicy: Never
+  backoffLimit: 3
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rabbitmq-load-generator
+  labels:
+    app: load-generator
+spec:
+  schedule: "*/2 * * * *"  # Every 2 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: load-generator
+            image: python:3.11-slim
+            command: ["/bin/bash"]
+            args:
+            - -c
+            - |
+              pip install pika
+              python -c "
+              import pika
+              import time
+              import os
+              import random
+              
+              # Connect to RabbitMQ
+              connection = pika.BlockingConnection(
+                  pika.ConnectionParameters(
+                      host=os.getenv('RABBITMQ_HOST', 'rabbitmq-service'),
+                      port=int(os.getenv('RABBITMQ_PORT', '5672')),
+                      virtual_host=os.getenv('RABBITMQ_VHOST', '/'),
+                      credentials=pika.PlainCredentials(
+                          os.getenv('RABBITMQ_USER', 'guest'),
+                          os.getenv('RABBITMQ_PASS', 'guest')
+                      )
+                  )
+              )
+              channel = connection.channel()
+              
+              # Declare queue
+              queue_name = os.getenv('RABBITMQ_QUEUE', 'task_queue')
+              channel.queue_declare(queue=queue_name, durable=True)
+              
+              # Send random number of messages (5-25)
+              message_count = random.randint(5, 25)
+              print(f'Generating {message_count} messages for load testing')
+              
+              for i in range(message_count):
+                  message = f'Load test message {i+1} - {time.time()}'
+                  channel.basic_publish(
+                      exchange='',
+                      routing_key=queue_name,
+                      body=message,
+                      properties=pika.BasicProperties(delivery_mode=2)
+                  )
+              
+              print(f'Generated {message_count} messages')
+              connection.close()
+              "
+            env:
+            - name: RABBITMQ_HOST
+              value: "rabbitmq-service"
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: "guest"
+            - name: RABBITMQ_PASS
+              value: "guest"
+            - name: RABBITMQ_QUEUE
+              value: "task_queue"
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+          restartPolicy: Never
+      backoffLimit: 2
