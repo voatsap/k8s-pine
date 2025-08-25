@@ -1,0 +1,86 @@
+# Allow Specific Traffic NetworkPolicy Examples
+# These policies demonstrate how to allow specific traffic while maintaining security
+
+---
+# Allow traffic between frontend and backend pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-backend
+  namespace: default
+spec:
+  # Apply to backend pods
+  podSelector:
+    matchLabels:
+      app: backend
+      tier: api
+  
+  policyTypes:
+  - Ingress
+  
+  ingress:
+  # Allow traffic from frontend pods on port 8080
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+          tier: web
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+# Allow traffic from specific pods with multiple selectors
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-database-access
+  namespace: default
+spec:
+  # Apply to database pods
+  podSelector:
+    matchLabels:
+      app: database
+      tier: data
+  
+  policyTypes:
+  - Ingress
+  
+  ingress:
+  # Allow from backend AND admin pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app: backend
+    - podSelector:
+        matchLabels:
+          role: admin
+    ports:
+    - protocol: TCP
+      port: 5432  # PostgreSQL
+    - protocol: TCP
+      port: 3306  # MySQL
+
+---
+# Allow traffic on specific ports only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-traffic-only
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx-app
+  
+  policyTypes:
+  - Ingress
+  
+  ingress:
+  # Allow HTTP and HTTPS from anywhere
+  - ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  # Block all other ports (like SSH, admin interfaces, etc.)

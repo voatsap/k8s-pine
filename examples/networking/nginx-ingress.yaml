@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+  namespace: default
+  annotations:
+    # cert-manager annotations for automatic TLS certificate provisioning
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    cert-manager.io/acme-challenge-type: "http01"
+    
+    # External DNS annotations for automatic DNS record creation
+    external-dns.alpha.kubernetes.io/hostname: "k8s-pine.p10e.io"
+    external-dns.alpha.kubernetes.io/ttl: "300"
+    
+    # Cilium ingress controller specific annotations
+    ingress.cilium.io/force-https: "true"
+    
+spec:
+  ingressClassName: cilium
+  tls:
+  - hosts:
+    - k8s-pine.p10e.io
+    secretName: k8s-pine-tls-cert
+  rules:
+  - host: k8s-pine.p10e.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-service
+            port:
+              number: 80

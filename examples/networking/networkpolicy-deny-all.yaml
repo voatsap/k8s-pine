@@ -1,0 +1,39 @@
+# Basic Deny-All NetworkPolicy
+# This policy blocks all ingress and egress traffic to/from pods in the namespace
+# Use this as a starting point for zero-trust networking
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-traffic
+  namespace: default
+spec:
+  # Apply to all pods in the namespace
+  podSelector: {}
+  
+  # Block all traffic types
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Empty ingress/egress rules = deny all
+  # No ingress: [] means no incoming traffic allowed
+  # No egress: [] means no outgoing traffic allowed
+---
+# Example: Apply deny-all to a specific app only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-for-app
+  namespace: default
+spec:
+  # Apply only to pods with label app=secure-app
+  podSelector:
+    matchLabels:
+      app: secure-app
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Completely isolated - no traffic in or out

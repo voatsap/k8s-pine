@@ -1,0 +1,27 @@
+# Example ClusterIssuer configuration based on existing cloudflare-issuer
+# This is for reference only - DO NOT APPLY as it will conflict with existing issuer
+# Use the existing 'cloudflare-issuer' ClusterIssuer in your cluster
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cloudflare-issuer-example
+spec:
+  acme:
+    # ACME server URL for Let's Encrypt production
+    server: https://acme-v02.api.letsencrypt.org/directory
+    
+    # Email address used for ACME registration
+    email: infra@pinesoftware.com.cy
+    
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: cloudflare-private-key
+    
+    # DNS-01 challenge provider using Cloudflare
+    solvers:
+    - dns01:
+        cloudflare:
+          apiTokenSecretRef:
+            key: apiKey
+            name: cloudflare-api-key

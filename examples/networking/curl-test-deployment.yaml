@@ -1,0 +1,40 @@
+# Curl Test Pod for Network Testing
+# This deployment provides a persistent curl pod for testing network connectivity,
+# ingress access, and NetworkPolicy validation
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-test
+  namespace: default
+  labels:
+    app: curl-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl-test
+  template:
+    metadata:
+      labels:
+        app: curl-test
+        # Add labels for NetworkPolicy testing
+        tier: test
+        role: client
+    spec:
+      containers:
+      - name: curl
+        image: curlimages/curl:latest
+        command: ["sleep", "3600"]
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+        # Add common network tools
+        env:
+        - name: TERM
+          value: xterm
+      restartPolicy: Always

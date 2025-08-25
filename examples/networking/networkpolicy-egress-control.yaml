@@ -1,0 +1,138 @@
+# Egress Control NetworkPolicy Examples
+# These policies control outbound traffic from pods
+
+---
+# Allow egress to specific services only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-database
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  
+  policyTypes:
+  - Egress
+  
+  egress:
+  # Allow connection to database pods
+  - to:
+    - podSelector:
+        matchLabels:
+          app: database
+    ports:
+    - protocol: TCP
+      port: 5432
+  
+  # Allow DNS resolution (required for service discovery)
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# Allow egress to external services by IP
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-external-api
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: api-client
+  
+  policyTypes:
+  - Egress
+  
+  egress:
+  # Allow HTTPS to external API (example: GitHub API)
+  - to:
+    - ipBlock:
+        cidr: 140.82.112.0/20  # GitHub IP range
+  - to:
+    - ipBlock:
+        cidr: 192.30.252.0/22  # GitHub IP range
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+# Block egress to specific networks (security)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: block-egress-to-internal-networks
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: untrusted-app
+  
+  policyTypes:
+  - Egress
+  
+  egress:
+  # Allow internet access but block internal networks
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8      # Private network
+        - 172.16.0.0/12   # Private network  
+        - 192.168.0.0/16  # Private network
+        - 169.254.0.0/16  # Link-local
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  
+  # Allow DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+# Allow egress to specific external domains (requires Cilium)
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-egress-to-specific-domains
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: web-scraper
+  
+  egress:
+  # Allow HTTPS to specific domains
+  - toFQDNs:
+    - matchName: "api.github.com"
+    - matchName: "httpbin.org"
+    - matchPattern: "*.googleapis.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+  
+  # Allow DNS
+  - toEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": kube-system
+        "k8s:k8s-app": kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP

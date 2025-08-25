@@ -1,0 +1,12 @@
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: k8s-pine-gw-dns
+  namespace: default
+spec:
+  endpoints:
+  - dnsName: k8s-pine-gw.p10e.io
+    recordTTL: 300
+    recordType: A
+    targets:
+    - 34.150.250.198

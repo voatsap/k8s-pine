@@ -1,0 +1,49 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: k8s-pine-gateway
+  namespace: default
+  annotations:
+    # External DNS integration
+    external-dns.alpha.kubernetes.io/hostname: "k8s-pine-gw.p10e.io"
+    external-dns.alpha.kubernetes.io/ttl: "300"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  - name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: k8s-pine-gw-tls-cert
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: nginx-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: k8s-pine-gateway
+  hostnames:
+  - "k8s-pine-gw.p10e.io"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: nginx-service
+      port: 80
+      weight: 100
