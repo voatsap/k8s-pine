@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom-example
+  labels:
+    app: oom-demo
+spec:
+  containers:
+  - name: memory-hog
+    image: busybox
+    command: ["sh", "-c"]
+    args: ["echo 'Allocating memory...'; tail /dev/zero"]
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "100m"
+      limits:
+        memory: "64Mi"  # Will be exceeded quickly by tail /dev/zero
+        cpu: "200m"
+  restartPolicy: Always

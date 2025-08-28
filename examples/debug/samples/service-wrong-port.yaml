@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-wrong-port
+  labels:
+    app: service-debug
+spec:
+  selector:
+    app: web-app
+  ports:
+  - port: 80
+    targetPort: 8080  # Wrong target port - nginx listens on 80
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app-wrong-port
+  labels:
+    app: service-debug
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: web
+        image: nginx
+        ports:
+        - containerPort: 80  # Nginx actually listens on 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"

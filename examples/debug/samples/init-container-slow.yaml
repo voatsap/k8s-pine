@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-container-slow
+  labels:
+    app: init-demo
+spec:
+  initContainers:
+  - name: init-download
+    image: busybox
+    command: ["sh", "-c"]
+    args: ["echo 'Downloading dependencies...'; sleep 30; echo 'Download complete'"]
+  - name: init-config
+    image: busybox
+    command: ["sh", "-c"]
+    args: ["echo 'Configuring application...'; sleep 10; echo 'Configuration complete'"]
+  containers:
+  - name: main-app
+    image: nginx
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  restartPolicy: Always

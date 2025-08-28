@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: image-pull-error-example
+  labels:
+    app: image-pull-demo
+spec:
+  containers:
+  - name: bad-image
+    image: nonexistent/fake-image:latest
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  restartPolicy: Always

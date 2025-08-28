@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-container-image-pull
+  labels:
+    app: init-demo
+spec:
+  initContainers:
+  - name: init-good
+    image: busybox
+    command: ["sh", "-c"]
+    args: ["echo 'First init container successful'"]
+  - name: init-bad-image
+    image: nonexistent/fake-init-image:latest
+    command: ["sh", "-c"]
+    args: ["echo 'This will never run'"]
+  containers:
+  - name: main-app
+    image: nginx
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  restartPolicy: Always
