@@ -222,7 +222,7 @@ kubectl exec -it POD_NAME -c CONTAINER_NAME -- /bin/bash
 kubectl exec POD_NAME -c CONTAINER_NAME -- ps aux
 
 # Check filesystem
-kubectl exec POD_NAME -c CONTAINER_NAME -- df -h
+kubectl exec POD_NAME -c CONTAINER_NAME -- du -sh /*
 
 # Check network
 kubectl exec POD_NAME -c CONTAINER_NAME -- netstat -tuln
@@ -296,7 +296,7 @@ kubectl get pv,pvc
 kubectl get storageclass
 
 # Check disk usage in container
-kubectl exec POD_NAME -- df -h
+kubectl exec POD_NAME -- du -sh /*
 ```
 
 ## 🎯 Troubleshooting Workflows
