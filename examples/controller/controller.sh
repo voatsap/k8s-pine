@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+log() { echo "[controller] $*"; }
+
+log "Starting ConfigMap watcher..."
+# Watches for ConfigMap add/modify/delete events cluster-wide
+kubectl get cm -A --watch -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers | while read -r ns cm; do
+  if [ -z "${ns:-}" ] || [ -z "${cm:-}" ]; then
+    continue
+  fi
+  
+  log "Detected ConfigMap change: ${ns}/${cm}"
+  # Fetch the latest ConfigMap and check for our annotation
+  sel=$(kubectl -n "$ns" get cm "$cm" -o jsonpath='{.metadata.annotations.k8spatterns\.io/restart-on-change}' 2>/dev/null || true)
+  if [ -n "${sel:-}" ]; then
+    log "ConfigMap ${ns}/${cm} has restart annotation; selector=${sel}"
+    # Prefer a rolling restart of Deployments matching selector (if any)
+    if kubectl -n "$ns" get deploy -l "$sel" -o name >/dev/null 2>&1; then
+      log "Rolling restart deployments (-n $ns -l $sel)"
+      kubectl -n "$ns" rollout restart deploy -l "$sel"
+    else
+      log "No deployments matched; deleting pods directly (-n $ns -l $sel)"
+      kubectl -n "$ns" delete pod -l "$sel" --ignore-not-found
+    fi
+  fi
+done
