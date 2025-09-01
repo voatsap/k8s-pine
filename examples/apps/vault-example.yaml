@@ -1,0 +1,83 @@
+# Example Vault configuration using Bank-Vaults operator
+# NOTE: This example had CrashLoopBackOff issues during testing
+# The working solution uses HashiCorp Vault Helm chart instead (see README.md)
+apiVersion: vault.banzaicloud.com/v1alpha1
+kind: Vault
+metadata:
+  name: vault-example
+  namespace: default
+spec:
+  size: 1
+  image: hashicorp/vault:1.15
+  
+  # Bank-Vaults specific configuration
+  bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:1.20.4
+  
+  # Vault configuration
+  config:
+    storage:
+      file:
+        path: "/vault/file"
+    listener:
+      tcp:
+        address: "0.0.0.0:8200"
+        tls_disable: true
+    api_addr: "http://0.0.0.0:8200"
+    ui: true
+    disable_mlock: true
+    
+  # External configuration for Bank-Vaults
+  externalConfig:
+    policies:
+      - name: allow_secrets
+        rules: |
+          path "secret/*" {
+            capabilities = ["create", "read", "update", "delete", "list"]
+          }
+    
+    auth:
+      - type: kubernetes
+        roles:
+          - name: default
+            bound_service_account_names: ["default", "vault"]
+            bound_service_account_namespaces: ["default"]
+            policies: ["allow_secrets"]
+            ttl: 1h
+    
+    secrets:
+      - path: secret
+        type: kv
+        description: KV Secret Engine
+        options:
+          version: 2
+
+  # Service configuration
+  serviceType: ClusterIP
+  
+  # Resources
+  resources:
+    vault:
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+    bankVaults:
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+
+  # Persistence
+  volumeClaimTemplates:
+    - metadata:
+        name: vault-file
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi

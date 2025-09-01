@@ -1,0 +1,61 @@
+# Vault Helm values for development deployment
+global:
+  enabled: true
+  tlsDisable: true
+
+injector:
+  enabled: false
+
+server:
+  # Development mode - NOT for production
+  dev:
+    enabled: true
+    devRootToken: "root"
+
+  # Resource limits for development
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+  # Storage configuration
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: null
+    accessMode: ReadWriteOnce
+
+  # Service configuration
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 8200
+    targetPort: 8200
+
+  # Enable UI
+  ui:
+    enabled: true
+    serviceType: ClusterIP
+
+  # High availability disabled for dev
+  ha:
+    enabled: false
+
+  # Standalone mode
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+      
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      
+      storage "file" {
+        path = "/vault/data"
+      }
