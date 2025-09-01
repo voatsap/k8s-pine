@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-watcher-operator-script
+  namespace: default
+data:
+  operator.sh: |
+    #!/bin/sh
+    set -eu
+
+    log() { echo "[operator] $*"; }
+
+    log "Starting ConfigWatcher operator..."
+
+    # Watch for ConfigWatcher custom resources
+    kubectl get configwatchers -A --watch -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,CONFIGMAP:.spec.configMap,SELECTOR:.spec.selector --no-headers | while read -r ns name configmap selector; do
+      if [ -z "${ns:-}" ] || [ -z "${name:-}" ] || [ -z "${configmap:-}" ] || [ -z "${selector:-}" ]; then
+        continue
+      fi
+      
+      log "ConfigWatcher ${ns}/${name} detected: configmap=${configmap}, selector=${selector}"
+      
+      # Check if the referenced ConfigMap exists and has changed recently
+      if kubectl -n "$ns" get cm "$configmap" >/dev/null 2>&1; then
+        log "ConfigMap ${ns}/${configmap} exists, checking for changes..."
+        
+        # Get the ConfigMap's last update time
+        last_update=$(kubectl -n "$ns" get cm "$configmap" -o jsonpath='{.metadata.resourceVersion}')
+        
+        # Update the ConfigWatcher status
+        kubectl -n "$ns" patch configwatcher "$name" --type merge -p "{\"status\":{\"lastUpdate\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"message\":\"Monitoring ConfigMap ${configmap} (rv: ${last_update})\"}}" 2>/dev/null || true
+        
+        # Restart deployments/pods matching the selector
+        if kubectl -n "$ns" get deploy -l "$selector" -o name >/dev/null 2>&1; then
+          log "Rolling restart deployments (-n $ns -l $selector)"
+          kubectl -n "$ns" rollout restart deploy -l "$selector"
+        else
+          log "No deployments matched; deleting pods directly (-n $ns -l $selector)"
+          kubectl -n "$ns" delete pod -l "$selector" --ignore-not-found
+        fi
+      else
+        log "ConfigMap ${ns}/${configmap} not found"
+        kubectl -n "$ns" patch configwatcher "$name" --type merge -p "{\"status\":{\"lastUpdate\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"message\":\"ConfigMap ${configmap} not found\"}}" 2>/dev/null || true
+      fi
+    done

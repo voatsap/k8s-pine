@@ -1,0 +1,8 @@
+apiVersion: k8spatterns.io/v1
+kind: ConfigWatcher
+metadata:
+  name: webapp-config-watcher
+  namespace: default
+spec:
+  configMap: webapp-config
+  selector: app=webapp

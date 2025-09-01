@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-watcher-operator
+  namespace: default
+  labels:
+    app: config-watcher-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config-watcher-operator
+  template:
+    metadata:
+      labels:
+        app: config-watcher-operator
+    spec:
+      serviceAccountName: config-watcher-operator
+      containers:
+        - name: operator
+          image: bitnami/kubectl:1.29
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - /operator/operator.sh
+          volumeMounts:
+            - name: operator-script
+              mountPath: /operator
+              readOnly: true
+      volumes:
+        - name: operator-script
+          configMap:
+            name: config-watcher-operator-script
+            defaultMode: 0555

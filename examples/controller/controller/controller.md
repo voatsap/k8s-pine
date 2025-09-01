@@ -14,11 +14,11 @@
  
  ## Files
  
- - `examples/controller/controller-rbac.yaml` — Namespace, ServiceAccount, ClusterRole, ClusterRoleBinding
- - `examples/controller/controller-configmap.yaml` — ConfigMap embedding the controller script
- - `examples/controller/controller-deployment.yaml` — Deployment mounting and running the script
- - `examples/controller/sample-app.yaml` — Demo ConfigMap, Deployment, Service
- - `examples/controller/controller.sh` — Script source (same logic as embedded in the ConfigMap for convenience)
+ - `examples/controller/controller/controller-rbac.yaml` — Namespace, ServiceAccount, ClusterRole, ClusterRoleBinding
+ - `examples/controller/controller/controller-configmap.yaml` — ConfigMap embedding the controller script
+ - `examples/controller/controller/controller-deployment.yaml` — Deployment mounting and running the script
+ - `examples/controller/controller/sample-app.yaml` — Demo ConfigMap, Deployment, Service
+ - `examples/controller/controller/controller.sh` — Script source (same logic as embedded in the ConfigMap for convenience)
  
  ---
  
@@ -36,16 +36,16 @@
  1. Apply controller RBAC, script (as ConfigMap), and Deployment
  
  ```bash
- kubectl apply -f examples/controller/controller-rbac.yaml
- kubectl apply -f examples/controller/controller-configmap.yaml
- kubectl apply -f examples/controller/controller-deployment.yaml
- ```
+kubectl apply -f examples/controller/controller/controller-rbac.yaml
+kubectl apply -f examples/controller/controller/controller-configmap.yaml
+kubectl apply -f examples/controller/controller/controller-deployment.yaml
+```
  
  2. Deploy the sample application
  
  ```bash
- kubectl apply -f examples/controller/sample-app.yaml
- ```
+kubectl apply -f examples/controller/controller/sample-app.yaml
+```
  
  3. Verify controller is running
  
@@ -74,11 +74,10 @@ kubectl patch configmap demo-config \
  6. Cleanup
  
  ```bash
- kubectl delete -f examples/controller/sample-app.yaml
- kubectl delete -f examples/controller/controller-deployment.yaml
- kubectl delete -f examples/controller/controller-configmap.yaml
- kubectl delete -f examples/controller/controller-rbac.yaml
- kubectl delete clusterrolebinding configmap-restarter --ignore-not-found
- kubectl delete clusterrole configmap-restarter --ignore-not-found
+kubectl delete -f examples/controller/controller/sample-app.yaml
+kubectl delete -f examples/controller/controller/controller-deployment.yaml
+kubectl delete -f examples/controller/controller/controller-configmap.yaml
+kubectl delete -f examples/controller/controller/controller-rbac.yaml
+kubectl delete clusterrolebinding configmap-restarter --ignore-not-found
+kubectl delete clusterrole configmap-restarter --ignore-not-found
  ```
- 
