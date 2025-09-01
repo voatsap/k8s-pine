@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finalizer-controller-script
+  namespace: default
+data:
+  finalizer-controller.sh: |
+    #!/bin/sh
+    set -eu
+
+    log() { echo "[finalizer-controller] $*"; }
+
+    log "Starting Finalizer Controller..."
+
+    # Watch for CleanupJob custom resources
+    kubectl get cleanupjobs -A --watch -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers | while read -r ns name; do
+      if [ -z "${ns:-}" ] || [ -z "${name:-}" ]; then
+        continue
+      fi
+      
+      log "CleanupJob ${ns}/${name} detected"
+      
+      # Get resource details directly without full JSON to avoid parsing issues
+      deletion_timestamp=$(kubectl -n "$ns" get cleanupjob "$name" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "")
+      resource_type=$(kubectl -n "$ns" get cleanupjob "$name" -o jsonpath='{.spec.resourceType}' 2>/dev/null || echo "")
+      selector=$(kubectl -n "$ns" get cleanupjob "$name" -o jsonpath='{.spec.selector}' 2>/dev/null || echo "")
+      cleanup_command=$(kubectl -n "$ns" get cleanupjob "$name" -o jsonpath='{.spec.cleanupCommand}' 2>/dev/null || echo "")
+      finalizers=$(kubectl -n "$ns" get cleanupjob "$name" -o jsonpath='{.metadata.finalizers[*]}' 2>/dev/null || echo "")
+      phase=$(kubectl -n "$ns" get cleanupjob "$name" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+      
+      if [ -n "$deletion_timestamp" ]; then
+        log "CleanupJob ${ns}/${name} is being deleted, running finalizer cleanup..."
+        
+        # Update status to Cleaning
+        kubectl -n "$ns" patch cleanupjob "$name" --type merge -p "{\"status\":{\"phase\":\"Cleaning\",\"message\":\"Running cleanup finalizer\",\"lastUpdate\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}" 2>/dev/null || true
+        
+        # Perform cleanup based on resource type
+        if [ -n "$resource_type" ] && [ -n "$selector" ]; then
+          log "Cleaning up ${resource_type} resources with selector: ${selector}"
+          
+          case "$resource_type" in
+            "configmap"|"cm")
+              kubectl -n "$ns" delete configmap -l "$selector" --ignore-not-found
+              ;;
+            "secret")
+              kubectl -n "$ns" delete secret -l "$selector" --ignore-not-found
+              ;;
+            "pod")
+              kubectl -n "$ns" delete pod -l "$selector" --ignore-not-found
+              ;;
+            "deployment"|"deploy")
+              kubectl -n "$ns" delete deployment -l "$selector" --ignore-not-found
+              ;;
+            *)
+              log "Unknown resource type: ${resource_type}"
+              ;;
+          esac
+        fi
+        
+        # Execute custom cleanup command if provided
+        if [ -n "$cleanup_command" ]; then
+          log "Executing custom cleanup command: ${cleanup_command}"
+          eval "$cleanup_command" || log "Custom cleanup command failed"
+        fi
+        
+        # Update status to Completed
+        kubectl -n "$ns" patch cleanupjob "$name" --type merge -p "{\"status\":{\"phase\":\"Completed\",\"message\":\"Cleanup completed successfully\",\"lastUpdate\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}" 2>/dev/null || true
+        
+        # Remove finalizer to allow deletion
+        kubectl -n "$ns" patch cleanupjob "$name" --type json -p '[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+        
+        log "Finalizer cleanup completed for ${ns}/${name}"
+      else
+        # Resource is not being deleted, ensure it has finalizer and proper status
+        if [ -z "$finalizers" ] || [ "$finalizers" = "<none>" ]; then
+          log "Adding finalizer to CleanupJob ${ns}/${name}"
+          kubectl -n "$ns" patch cleanupjob "$name" --type merge -p '{"metadata":{"finalizers":["k8spatterns.io/cleanup-finalizer"]}}' 2>/dev/null || true
+        fi
+        
+        if [ -z "$phase" ] || [ "$phase" = "<none>" ]; then
+          log "Setting initial status for CleanupJob ${ns}/${name}"
+          kubectl -n "$ns" patch cleanupjob "$name" --type merge -p "{\"status\":{\"phase\":\"Pending\",\"message\":\"Waiting for deletion\",\"lastUpdate\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}" 2>/dev/null || true
+        fi
+      fi
+    done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finalizer-controller
+  namespace: default
+  labels:
+    app: finalizer-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finalizer-controller
+  template:
+    metadata:
+      labels:
+        app: finalizer-controller
+    spec:
+      serviceAccountName: finalizer-controller
+      containers:
+        - name: controller
+          image: bitnami/kubectl:1.29
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - /controller/finalizer-controller.sh
+          volumeMounts:
+            - name: controller-script
+              mountPath: /controller
+              readOnly: true
+      volumes:
+        - name: controller-script
+          configMap:
+            name: finalizer-controller-script
+            defaultMode: 0555

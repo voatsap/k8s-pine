@@ -1,0 +1,90 @@
+# Example demonstrating different cascade deletion policies
+
+# Parent resource with owner references
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parent-app
+  namespace: default
+  labels:
+    app: parent-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: parent-app
+  template:
+    metadata:
+      labels:
+        app: parent-app
+    spec:
+      containers:
+        - name: app
+          image: public.ecr.aws/docker/library/nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+---
+# Child ConfigMap with owner reference to parent Deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: child-config
+  namespace: default
+  labels:
+    app: parent-app
+    component: config
+  ownerReferences:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: parent-app
+      uid: "" # This will be set automatically when applied
+      controller: true
+      blockOwnerDeletion: true
+data:
+  config.yaml: |
+    app:
+      name: parent-app
+      version: "1.0"
+---
+# Child Secret with owner reference to parent Deployment
+apiVersion: v1
+kind: Secret
+metadata:
+  name: child-secret
+  namespace: default
+  labels:
+    app: parent-app
+    component: secret
+  ownerReferences:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: parent-app
+      uid: "" # This will be set automatically when applied
+      controller: true
+      blockOwnerDeletion: false
+type: Opaque
+data:
+  password: cGFzc3dvcmQxMjM= # password123 base64 encoded
+---
+# Service for the parent app
+apiVersion: v1
+kind: Service
+metadata:
+  name: parent-app-service
+  namespace: default
+  labels:
+    app: parent-app
+  ownerReferences:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: parent-app
+      uid: "" # This will be set automatically when applied
+      controller: false
+      blockOwnerDeletion: false
+spec:
+  selector:
+    app: parent-app
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP

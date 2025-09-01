@@ -1,0 +1,82 @@
+# Sample CleanupJob resources demonstrating different cleanup scenarios
+
+# CleanupJob to clean up ConfigMaps with specific labels
+apiVersion: k8spatterns.io/v1
+kind: CleanupJob
+metadata:
+  name: cleanup-temp-configs
+  namespace: default
+spec:
+  resourceType: configmap
+  selector: "environment=temp"
+---
+# CleanupJob to clean up test pods
+apiVersion: k8spatterns.io/v1
+kind: CleanupJob
+metadata:
+  name: cleanup-test-pods
+  namespace: default
+spec:
+  resourceType: pod
+  selector: "type=test"
+---
+# CleanupJob with custom cleanup command
+apiVersion: k8spatterns.io/v1
+kind: CleanupJob
+metadata:
+  name: cleanup-with-custom-command
+  namespace: default
+spec:
+  resourceType: secret
+  selector: "cleanup=true"
+  cleanupCommand: "echo 'Custom cleanup executed'; kubectl get secrets -l cleanup=true"
+---
+# Sample resources to be cleaned up by the CleanupJobs above
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temp-config-1
+  namespace: default
+  labels:
+    environment: temp
+    app: demo
+data:
+  config: "temporary configuration"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temp-config-2
+  namespace: default
+  labels:
+    environment: temp
+    app: demo
+data:
+  config: "another temporary configuration"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-1
+  namespace: default
+  labels:
+    type: test
+    app: demo
+spec:
+  containers:
+    - name: test
+      image: public.ecr.aws/docker/library/alpine:latest
+      command: ["sleep", "3600"]
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cleanup-secret
+  namespace: default
+  labels:
+    cleanup: "true"
+    app: demo
+type: Opaque
+data:
+  key: dGVzdC1zZWNyZXQ= # test-secret base64 encoded
