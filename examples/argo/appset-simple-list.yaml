@@ -1,61 +1,61 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: mysql-pull-requests
+  name: mysql-simple-environments
   namespace: argo
 spec:
   generators:
-  - pullRequest:
-      github:
-        owner: voatsap
-        repo: k8s-pine
-        tokenRef:
-          secretName: github-token
-          key: token
-      requeueAfterSeconds: 300
-      filters:
-      - branchMatch: "feature/.*"
-      - branchMatch: "hotfix/.*"
+  - list:
+      elements:
+      - env: dev
+        namespace: mysql-appset-dev
+        storage: "2Gi"
+        memory: "256Mi"
+        cpu: "250m"
+      - env: staging
+        namespace: mysql-appset-staging
+        storage: "5Gi"
+        memory: "512Mi"
+        cpu: "500m"
+      - env: prod
+        namespace: mysql-appset-prod
+        storage: "10Gi"
+        memory: "1Gi"
+        cpu: "1000m"
   template:
     metadata:
-      name: mysql-pr-{{number}}
+      name: mysql-appset-{{.env}}
       annotations:
-        argocd.argoproj.io/sync-wave: "5"
-      finalizers:
-      - resources-finalizer.argocd.argoproj.io
+        argocd.argoproj.io/sync-wave: "10"
     spec:
       project: default
-      sources:
-      - chart: mysql
+      source:
+        chart: mysql
         repoURL: https://charts.bitnami.com/bitnami
         targetRevision: 11.1.15
         helm:
           parameters:
           - name: auth.rootPassword
-            value: "pr{{number}}Root123"
+            value: "{{.env}}RootPass123"
           - name: auth.database
-            value: "pr_{{number}}_db"
+            value: "{{.env}}db"
           - name: auth.username
-            value: "pr_{{number}}_user"
+            value: "{{.env}}user"
           - name: auth.password
-            value: "pr{{number}}Pass123"
+            value: "{{.env}}Pass123"
           - name: primary.persistence.size
-            value: "1Gi"
+            value: "{{.storage}}"
           - name: primary.resources.requests.memory
-            value: "256Mi"
+            value: "{{.memory}}"
           - name: primary.resources.requests.cpu
-            value: "250m"
-          - name: primary.resources.limits.memory
-            value: "512Mi"
-          - name: primary.resources.limits.cpu
-            value: "500m"
+            value: "{{.cpu}}"
           - name: secondary.replicaCount
             value: "0"
           - name: metrics.enabled
             value: "false"
       destination:
         server: https://kubernetes.default.svc
-        namespace: mysql-pr-{{number}}
+        namespace: "{{.namespace}}"
       syncPolicy:
         automated:
           prune: true

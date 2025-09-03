@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-simple-test
+  namespace: helm-test
+  labels:
+    app: mysql-test
+    target: mysql-simple
+spec:
+  restartPolicy: Never
+  containers:
+  - name: mysql-client
+    image: mysql:8.0
+    command: ['sh', '-c']
+    args:
+    - |
+      echo "Testing connection to mysql-simple..."
+      mysql -h mysql.mysql-simple.svc.cluster.local -u testuser -ptestpass123 testdb -e "SELECT 'MySQL Simple Connection Successful!' as status;"
+      echo "Test completed for mysql-simple"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-with-init-test
+  namespace: helm-test
+  labels:
+    app: mysql-test
+    target: mysql-with-init
+spec:
+  restartPolicy: Never
+  containers:
+  - name: mysql-client
+    image: mysql:8.0
+    command: ['sh', '-c']
+    args:
+    - |
+      echo "Testing connection to mysql-with-init..."
+      mysql -h mysql-app-mysql.mysql-with-init.svc.cluster.local -u testuser -ptestpass123 testdb -e "
+      SELECT 'MySQL With Init Connection Successful!' as status;
+      SHOW TABLES;
+      SELECT COUNT(*) as user_count FROM users;
+      SELECT COUNT(*) as product_count FROM products;
+      "
+      echo "Test completed for mysql-with-init"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-connectivity-test
+  namespace: helm-test
+  labels:
+    app: mysql-test
+    type: connectivity
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: connectivity-test
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "=== MySQL Connectivity Test ==="
+          echo "Testing DNS resolution..."
+          nslookup mysql.mysql-simple.svc.cluster.local
+          nslookup mysql-app-mysql.mysql-with-init.svc.cluster.local
+          echo "=== DNS Test Complete ==="

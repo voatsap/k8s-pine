@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mysql-simple
+  labels:
+    app: mysql-simple
+    managed-by: argocd
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mysql-with-init
+  labels:
+    app: mysql-with-init
+    managed-by: argocd
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: helm-test
+  labels:
+    app: helm-test
+    managed-by: argocd

@@ -19,6 +19,12 @@ kubectl apply -f install/argocd-ingress.yaml
 
 # Deploy example application
 kubectl apply -f test-application.yaml
+
+# Deploy sync wave examples (Helm charts)
+kubectl apply -f helm-namespace-setup.yaml
+kubectl apply -f helm-mysql-simple.yaml
+kubectl apply -f helm-mysql-with-init.yaml
+kubectl apply -f helm-test-client.yaml
 ```
 
 ## 🔐 Access Information
@@ -44,7 +50,18 @@ argocd login k8s-pine-argocd.p10e.io --username admin --password I8H1QNTlpejOFvx
 ```
 examples/argo/
 ├── README.md                       # This file
+├── README-sync-waves.md            # Sync waves documentation
 ├── test-application.yaml           # Example ArgoCD application (controller demo)
+├── helm-namespace-setup.yaml      # Sync wave -1: Namespace setup
+├── helm-mysql-simple.yaml         # Sync wave 1: Simple MySQL
+├── helm-mysql-with-init.yaml      # Sync wave 2: MySQL with hooks
+├── helm-test-client.yaml          # Sync wave 3: Test clients
+├── helm-app-of-apps.yaml          # App-of-apps pattern
+├── manifests/                      # Additional manifests
+│   ├── namespaces/
+│   │   └── mysql-namespaces.yaml  # Namespace definitions
+│   └── test-clients/
+│       └── mysql-test-pods.yaml   # Test pod definitions
 └── install/                        # ArgoCD installation files
     ├── argocd-namespace.yaml       # Argo namespace definition
     ├── argocd-install.yaml         # Alternative job-based installer

@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mysql-simple
+  namespace: argo
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  destination:
+    namespace: mysql-simple
+    server: https://kubernetes.default.svc
+  project: default
+  sources:
+  - chart: mysql
+    repoURL: https://charts.bitnami.com/bitnami
+    targetRevision: 11.1.15
+    helm:
+      valueFiles:
+      - $values/examples/helm/mysql-values.yaml
+  - repoURL: https://github.com/voatsap/k8s-pine/
+    targetRevision: main
+    ref: values
+  syncPolicy:
+    automated:
+      enabled: true
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true

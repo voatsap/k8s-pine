@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mysql-with-init
+  namespace: argo
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  destination:
+    namespace: mysql-with-init
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    path: examples/helm/mysql-with-init
+    repoURL: https://github.com/voatsap/k8s-pine/
+    targetRevision: main
+    helm:
+      releaseName: mysql-app
+  syncPolicy:
+    automated:
+      enabled: true
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
