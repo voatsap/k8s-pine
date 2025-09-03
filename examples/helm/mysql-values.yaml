@@ -1,0 +1,37 @@
+# Simple MySQL Bitnami Helm Chart Values
+# Basic configuration for MySQL deployment
+
+## Authentication parameters
+auth:
+  rootPassword: "rootpassword123"
+  database: "testdb"
+  username: "testuser"
+  password: "testpass123"
+
+## Primary MySQL configuration
+primary:
+  persistence:
+    enabled: true
+    size: 2Gi
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+## Disable secondary replicas for simplicity
+secondary:
+  replicaCount: 0
+
+## Disable metrics for simplicity
+metrics:
+  enabled: false
+
+## Service configuration
+service:
+  type: ClusterIP
+  ports:
+    mysql: 3306

@@ -1,0 +1,26 @@
+# MySQL configuration (passed to the dependency)
+mysql:
+  auth:
+    rootPassword: "rootpassword123"
+    database: "testdb"
+    username: "testuser"
+    password: "testpass123"
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+    
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+  
+  secondary:
+    replicaCount: 0
+  
+  metrics:
+    enabled: false

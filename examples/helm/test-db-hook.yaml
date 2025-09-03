@@ -1,0 +1,81 @@
+# Helm Hook: Test Database Initialization
+# This job runs after MySQL installation to create test tables and data
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-test-db-init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    app: mysql-test-init
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: mysql-test-init
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: test-db-init
+        image: mysql:8.0
+        env:
+        - name: MYSQL_HOST
+          value: "mysql"
+        - name: MYSQL_DATABASE
+          value: "testdb"
+        - name: MYSQL_USER
+          value: "testuser"
+        - name: MYSQL_PASSWORD
+          value: "testpass123"
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          echo "Waiting for MySQL to be ready..."
+          until mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "SELECT 1" >/dev/null 2>&1; do
+            echo "MySQL not ready, waiting..."
+            sleep 3
+          done
+          
+          echo "MySQL is ready! Creating test database structure..."
+          
+          mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" << 'EOF'
+          
+          -- Create test tables
+          CREATE TABLE IF NOT EXISTS users (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              name VARCHAR(100) NOT NULL,
+              email VARCHAR(100) UNIQUE NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+          
+          CREATE TABLE IF NOT EXISTS products (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              name VARCHAR(100) NOT NULL,
+              price DECIMAL(10,2) NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+          
+          -- Insert test data
+          INSERT IGNORE INTO users (name, email) VALUES 
+              ('Alice Smith', 'alice@example.com'),
+              ('Bob Johnson', 'bob@example.com'),
+              ('Carol Davis', 'carol@example.com');
+          
+          INSERT IGNORE INTO products (name, price) VALUES 
+              ('Laptop', 999.99),
+              ('Mouse', 29.99),
+              ('Keyboard', 79.99);
+          
+          -- Show results
+          SELECT 'Test database initialized successfully!' as status;
+          SELECT COUNT(*) as total_users FROM users;
+          SELECT COUNT(*) as total_products FROM products;
+          
+          EOF
+          
+          echo "Test database initialization completed!"

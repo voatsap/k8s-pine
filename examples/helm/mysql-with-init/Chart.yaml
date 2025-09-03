@@ -1,0 +1,11 @@
+apiVersion: v2
+name: mysql-with-init
+description: MySQL deployment with database initialization hooks
+type: application
+version: 0.1.0
+appVersion: "8.0"
+
+dependencies:
+- name: mysql
+  version: "11.1.15"
+  repository: "https://charts.bitnami.com/bitnami"
