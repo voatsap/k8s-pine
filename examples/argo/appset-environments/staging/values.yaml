@@ -1,0 +1,19 @@
+environment: staging
+database:
+  name: stagingdb
+  user: staginguser
+  password: stagingPass123
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 500m
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+persistence:
+  size: 5Gi
+replicas:
+  primary: 1
+  secondary: 0
+monitoring:
+  enabled: true

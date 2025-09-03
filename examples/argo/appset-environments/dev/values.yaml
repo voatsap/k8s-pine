@@ -1,0 +1,19 @@
+environment: dev
+database:
+  name: devdb
+  user: devuser
+  password: devPass123
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 250m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+persistence:
+  size: 2Gi
+replicas:
+  primary: 1
+  secondary: 0
+monitoring:
+  enabled: false

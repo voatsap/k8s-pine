@@ -1,0 +1,70 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: mysql-matrix-apps
+  namespace: argo
+spec:
+  generators:
+  - matrix:
+      generators:
+      - list:
+          elements:
+          - env: dev
+            tier: frontend
+          - env: dev
+            tier: backend
+          - env: staging
+            tier: frontend
+          - env: staging
+            tier: backend
+          - env: prod
+            tier: frontend
+          - env: prod
+            tier: backend
+      - list:
+          elements:
+          - version: "8.0"
+            chart_version: "11.1.15"
+          - version: "8.4"
+            chart_version: "11.1.15"
+  template:
+    metadata:
+      name: mysql-{{env}}-{{tier}}-{{version}}
+      annotations:
+        argocd.argoproj.io/sync-wave: "4"
+    spec:
+      project: default
+      sources:
+      - chart: mysql
+        repoURL: https://charts.bitnami.com/bitnami
+        targetRevision: "{{chart_version}}"
+        helm:
+          parameters:
+          - name: auth.rootPassword
+            value: "{{env}}{{tier}}Root123"
+          - name: auth.database
+            value: "{{env}}_{{tier}}_db"
+          - name: auth.username
+            value: "{{env}}_{{tier}}_user"
+          - name: auth.password
+            value: "{{env}}{{tier}}Pass123"
+          - name: image.tag
+            value: "{{version}}"
+          - name: primary.persistence.size
+            value: "{{#if (eq env 'prod')}}5Gi{{else}}1Gi{{/if}}"
+          - name: primary.resources.requests.memory
+            value: "{{#if (eq env 'prod')}}512Mi{{else}}256Mi{{/if}}"
+          - name: primary.resources.requests.cpu
+            value: "{{#if (eq env 'prod')}}500m{{else}}250m{{/if}}"
+          - name: secondary.replicaCount
+            value: "0"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: mysql-{{env}}-{{tier}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        - ServerSideApply=true

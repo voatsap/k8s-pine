@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: mysql-git-environments
+  namespace: argo
+spec:
+  generators:
+  - git:
+      repoURL: https://github.com/voatsap/k8s-pine/
+      revision: main
+      directories:
+      - path: examples/argo/appset-environments/*
+  template:
+    metadata:
+      name: mysql-{{path.basename}}
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+    spec:
+      project: default
+      sources:
+      - chart: mysql
+        repoURL: https://charts.bitnami.com/bitnami
+        targetRevision: 11.1.15
+        helm:
+          valueFiles:
+          - $values/{{path}}/values.yaml
+          parameters:
+          - name: auth.rootPassword
+            value: "{{path.basename}}RootPass123"
+          - name: auth.database
+            value: "{{path.basename}}db"
+          - name: auth.username
+            value: "{{path.basename}}user"
+          - name: auth.password
+            value: "{{path.basename}}Pass123"
+      - repoURL: https://github.com/voatsap/k8s-pine/
+        targetRevision: main
+        ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: mysql-{{path.basename}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        - ServerSideApply=true

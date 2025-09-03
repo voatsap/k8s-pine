@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: mysql-cluster-apps
+  namespace: argo
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          environment: production
+  - clusters:
+      selector:
+        matchLabels:
+          environment: development
+  template:
+    metadata:
+      name: mysql-{{name}}
+      annotations:
+        argocd.argoproj.io/sync-wave: "3"
+    spec:
+      project: default
+      sources:
+      - chart: mysql
+        repoURL: https://charts.bitnami.com/bitnami
+        targetRevision: 11.1.15
+        helm:
+          parameters:
+          - name: auth.rootPassword
+            value: "{{metadata.labels.environment}}RootPass123"
+          - name: auth.database
+            value: "{{metadata.labels.environment}}db"
+          - name: auth.username
+            value: "{{metadata.labels.environment}}user"
+          - name: auth.password
+            value: "{{metadata.labels.environment}}Pass123"
+          - name: primary.persistence.size
+            value: "{{#if (eq metadata.labels.environment 'production')}}10Gi{{else}}2Gi{{/if}}"
+          - name: primary.resources.requests.memory
+            value: "{{#if (eq metadata.labels.environment 'production')}}1Gi{{else}}256Mi{{/if}}"
+          - name: primary.resources.requests.cpu
+            value: "{{#if (eq metadata.labels.environment 'production')}}1000m{{else}}250m{{/if}}"
+          - name: secondary.replicaCount
+            value: "{{#if (eq metadata.labels.environment 'production')}}1{{else}}0{{/if}}"
+      destination:
+        server: "{{server}}"
+        namespace: mysql-{{metadata.labels.environment}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        - ServerSideApply=true

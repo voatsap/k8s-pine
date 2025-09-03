@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: mysql-pull-requests
+  namespace: argo
+spec:
+  generators:
+  - pullRequest:
+      github:
+        owner: voatsap
+        repo: k8s-pine
+        tokenRef:
+          secretName: github-token
+          key: token
+      requeueAfterSeconds: 300
+      filters:
+      - branchMatch: "feature/.*"
+      - branchMatch: "hotfix/.*"
+  template:
+    metadata:
+      name: mysql-pr-{{number}}
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      sources:
+      - chart: mysql
+        repoURL: https://charts.bitnami.com/bitnami
+        targetRevision: 11.1.15
+        helm:
+          parameters:
+          - name: auth.rootPassword
+            value: "pr{{number}}Root123"
+          - name: auth.database
+            value: "pr_{{number}}_db"
+          - name: auth.username
+            value: "pr_{{number}}_user"
+          - name: auth.password
+            value: "pr{{number}}Pass123"
+          - name: primary.persistence.size
+            value: "1Gi"
+          - name: primary.resources.requests.memory
+            value: "256Mi"
+          - name: primary.resources.requests.cpu
+            value: "250m"
+          - name: primary.resources.limits.memory
+            value: "512Mi"
+          - name: primary.resources.limits.cpu
+            value: "500m"
+          - name: secondary.replicaCount
+            value: "0"
+          - name: metrics.enabled
+            value: "false"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: mysql-pr-{{number}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        - ServerSideApply=true
