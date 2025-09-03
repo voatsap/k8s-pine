@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argo
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Exclude GKE-specific resources that cause permission errors
+  resource.exclusions: |
+    - apiGroups:
+      - warden.gke.io
+      kinds:
+      - Audit
+      clusters:
+      - "*"
+    - apiGroups:
+      - datalayer.gke.io
+      kinds:
+      - GCPDataSource
+      clusters:
+      - "*"
+    - apiGroups:
+      - gkehub.cnrm.cloud.google.com
+      kinds:
+      - "*"
+      clusters:
+      - "*"
+    - apiGroups:
+      - container.cnrm.cloud.google.com
+      kinds:
+      - "*"
+      clusters:
+      - "*"
+  # Application instance label key
+  application.instanceLabelKey: argocd.argoproj.io/instance

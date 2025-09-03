@@ -1,0 +1,37 @@
+# ArgoCD Server Configuration
+# This configures ArgoCD server for external access
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-server-config
+  namespace: argo
+  labels:
+    app.kubernetes.io/name: argocd-server-config
+    app.kubernetes.io/part-of: argocd
+data:
+  # Enable insecure mode for ingress
+  server.insecure: "true"
+  # Add the external URL
+  url: "https://k8s-pine-argocd.p10e.io"
+  # Enable OIDC if needed (optional)
+  oidc.config: |
+    name: OIDC
+    issuer: https://k8s-pine-argocd.p10e.io/api/dex
+    clientId: argo-cd
+    clientSecret: $oidc.clientSecret
+    requestedScopes: ["openid", "profile", "email", "groups"]
+---
+# ArgoCD Command Parameters
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argo
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Enable insecure mode
+  server.insecure: "true"
+  # Disable internal TLS
+  server.disable.auth: "false"

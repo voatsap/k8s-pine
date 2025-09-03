@@ -1,0 +1,67 @@
+# ArgoCD Installation Manifest
+# This will install ArgoCD in the argo namespace
+# Source: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-install-script
+  namespace: argo
+data:
+  install.sh: |
+    #!/bin/bash
+    echo "Installing ArgoCD in argo namespace..."
+    kubectl apply -n argo -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    echo "ArgoCD installation completed!"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: argocd-installer
+  namespace: argo
+spec:
+  template:
+    spec:
+      serviceAccountName: argocd-installer
+      containers:
+      - name: installer
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash"]
+        args: ["/scripts/install.sh"]
+        volumeMounts:
+        - name: install-script
+          mountPath: /scripts
+      volumes:
+      - name: install-script
+        configMap:
+          name: argocd-install-script
+          defaultMode: 0755
+      restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-installer
+  namespace: argo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-installer
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-installer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-installer
+subjects:
+- kind: ServiceAccount
+  name: argocd-installer
+  namespace: argo
