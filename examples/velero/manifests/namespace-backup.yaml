@@ -1,0 +1,171 @@
+# Namespace-Specific Backup Examples
+# This file contains backup manifests for different namespace scenarios
+
+---
+# Single namespace backup
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: default-namespace-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - default
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  storageLocation: default
+  ttl: 720h0m0s  # 30 days
+  defaultVolumesToFsBackup: true
+
+---
+# Multiple specific namespaces backup
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: multi-namespace-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - default
+  - kube-system
+  - velero
+  - mysql-prod
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  - nodes
+  - nodes.metrics.k8s.io
+  storageLocation: default
+  ttl: 720h0m0s
+  defaultVolumesToFsBackup: true
+
+---
+# Production namespaces backup with label selector
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: production-namespaces-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - prod-app1
+  - prod-app2
+  - prod-database
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  storageLocation: default
+  ttl: 2160h0m0s  # 90 days for production
+  defaultVolumesToFsBackup: true
+  labelSelector:
+    matchLabels:
+      environment: "production"
+
+---
+# Development namespaces backup
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: dev-namespaces-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - dev-*  # All namespaces starting with 'dev-'
+  - staging-*  # All namespaces starting with 'staging-'
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  - pods.metrics.k8s.io
+  storageLocation: default
+  ttl: 168h0m0s  # 7 days for dev environments
+  defaultVolumesToFsBackup: false  # Skip PVC data for dev
+
+---
+# Namespace backup excluding system resources
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: app-namespace-only-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - my-application
+  includedResources:
+  - deployments
+  - services
+  - configmaps
+  - secrets
+  - persistentvolumeclaims
+  - ingresses
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  - pods  # Exclude pods to avoid transient state
+  - replicasets  # Will be recreated by deployments
+  storageLocation: default
+  ttl: 720h0m0s
+  defaultVolumesToFsBackup: true
+
+---
+# Schedule for automatic namespace backups
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: namespace-backup-schedule
+  namespace: velero
+spec:
+  schedule: "0 4 * * *"  # Daily at 4 AM
+  template:
+    includedNamespaces:
+    - default
+    - production
+    - staging
+    excludedNamespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    storageLocation: default
+    ttl: 720h0m0s  # 30 days
+    defaultVolumesToFsBackup: true
+
+---
+# Critical namespace backup with immediate execution
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: critical-namespace-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - critical-app
+  - database-prod
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  storageLocation: default
+  ttl: 4320h0m0s  # 6 months for critical data
+  defaultVolumesToFsBackup: true
+  labelSelector:
+    matchLabels:
+      criticality: "high"
+  hooks:
+    resources:
+    - name: database-backup-hook
+      includedNamespaces:
+      - database-prod
+      labelSelector:
+        matchLabels:
+          app: "mysql"
+      pre:
+      - exec:
+          container: mysql
+          command:
+          - /bin/bash
+          - -c
+          - "mysqldump --all-databases > /backup/dump.sql"
+          onError: Continue
+          timeout: 30m

@@ -1,0 +1,113 @@
+# PVC and Volume Backup Examples
+# This file contains backup manifests specifically for persistent volumes
+
+---
+# Backup all PVCs with file-level data
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: all-pvc-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - "*"
+  includedResources:
+  - persistentvolumeclaims
+  - persistentvolumes
+  - pods  # Include pods to backup mounted volume data
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  storageLocation: default
+  ttl: 720h0m0s  # 30 days
+  defaultVolumesToFsBackup: true  # Enable file-level backup
+  
+---
+# Backup specific namespace PVCs only
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: namespace-pvc-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - default
+  - mysql-prod  # Example production namespace
+  includedResources:
+  - persistentvolumeclaims
+  - persistentvolumes
+  - pods
+  storageLocation: default
+  ttl: 720h0m0s
+  defaultVolumesToFsBackup: true
+  labelSelector:
+    matchLabels:
+      backup-pvc: "true"  # Only backup PVCs with this label
+
+---
+# Backup PVCs with specific storage class
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: fast-storage-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - "*"
+  includedResources:
+  - persistentvolumeclaims
+  - persistentvolumes
+  - pods
+  storageLocation: default
+  ttl: 720h0m0s
+  defaultVolumesToFsBackup: true
+  labelSelector:
+    matchLabels:
+      storage-class: "fast-ssd"  # Example: backup only fast storage
+
+---
+# Database PVC backup (example for MySQL/PostgreSQL)
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: database-pvc-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - mysql-prod
+  - postgres-prod
+  includedResources:
+  - persistentvolumeclaims
+  - persistentvolumes
+  - pods
+  - secrets  # Include database secrets
+  - configmaps  # Include database configs
+  storageLocation: default
+  ttl: 2160h0m0s  # 90 days for database backups
+  defaultVolumesToFsBackup: true
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/component: "database"
+
+---
+# Schedule for automatic PVC backups
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-pvc-backup
+  namespace: velero
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  template:
+    includedNamespaces:
+    - "*"
+    includedResources:
+    - persistentvolumeclaims
+    - persistentvolumes
+    - pods
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    storageLocation: default
+    ttl: 720h0m0s  # 30 days
+    defaultVolumesToFsBackup: true

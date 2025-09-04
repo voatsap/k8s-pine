@@ -1,0 +1,89 @@
+# Velero Backup Schedules
+# This file contains automated backup schedules for different scenarios
+
+---
+# Daily backup schedule for critical namespaces
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-namespace-backup
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  template:
+    includedNamespaces:
+    - default
+    - kube-system
+    - velero
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    storageLocation: default
+    ttl: 720h0m0s  # 30 days retention
+    defaultVolumesToFsBackup: true  # Enable file-level backup for PVCs
+
+---
+# Weekly full cluster backup
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: weekly-full-backup
+  namespace: velero
+spec:
+  schedule: "0 1 * * 0"  # Weekly on Sunday at 1 AM
+  template:
+    includedNamespaces:
+    - "*"  # All namespaces
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    - nodes
+    - nodes.metrics.k8s.io
+    - pods.metrics.k8s.io
+    storageLocation: default
+    ttl: 2160h0m0s  # 90 days retention
+    defaultVolumesToFsBackup: true
+
+---
+# Hourly backup for production namespace (example)
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: hourly-production-backup
+  namespace: velero
+spec:
+  schedule: "0 * * * *"  # Every hour
+  template:
+    includedNamespaces:
+    - production  # Replace with your production namespace
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    storageLocation: default
+    ttl: 168h0m0s  # 7 days retention
+    defaultVolumesToFsBackup: true
+    labelSelector:
+      matchLabels:
+        backup: "enabled"  # Only backup resources with this label
+
+---
+# Monthly archive backup
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: monthly-archive-backup
+  namespace: velero
+spec:
+  schedule: "0 0 1 * *"  # Monthly on 1st day at midnight
+  template:
+    includedNamespaces:
+    - "*"
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    - nodes
+    - nodes.metrics.k8s.io
+    - pods.metrics.k8s.io
+    storageLocation: default
+    ttl: 8760h0m0s  # 1 year retention
+    defaultVolumesToFsBackup: true

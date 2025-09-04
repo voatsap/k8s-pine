@@ -1,0 +1,61 @@
+# Velero configuration for bare metal Rancher cluster with PVC storage
+# Uses Minio as S3-compatible storage backend on local PVC
+
+configuration:
+  # Backup storage locations (array format)
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: velero-backups
+      config:
+        region: minio
+        s3ForcePathStyle: "true"
+        s3Url: http://minio.velero.svc.cluster.local:9000
+        publicUrl: http://minio.velero.svc.cluster.local:9000
+      
+  # Volume snapshot locations (array format)
+  volumeSnapshotLocation:
+    - name: default
+      provider: aws
+      config:
+        region: minio
+
+# Minio credentials
+credentials:
+  useSecret: true
+  secretContents:
+    cloud: |
+      [default]
+      aws_access_key_id = minio
+      aws_secret_access_key = minio123
+
+# Enable node agent for file-level backups
+deployNodeAgent: true
+nodeAgent:
+  podVolumePath: /var/lib/kubelet/pods
+  privileged: false
+
+# Init containers for AWS plugin
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.8.0
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+# Resource limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+# Security context
+securityContext:
+  fsGroup: 65534
+  runAsUser: 65534
+  runAsGroup: 65534
+  runAsNonRoot: true
